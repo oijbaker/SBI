@@ -14,11 +14,11 @@ double calc_dist(NumericVector x_sim, NumericVector x) {
 }
 
 // [[Rcpp::export]]
-NumericMatrix abc_algorithm(int n, double eps, int p, NumericVector x) {
-NumericMatrix accepted_samples(n, p);
+NumericMatrix abc_algorithm(int n, double eps, int p, NumericVector x, int ncores) {
+RMatrix<double> accepted_samples;
 int count = 0;
 
-#pragma omp parallel
+#pragma omp parallel num_threads(ncores)
 {
   NumericVector theta_sim(p);
   NumericVector x_sim(p);
@@ -32,11 +32,9 @@ int count = 0;
     
     // Accept-reject step
     if(dist <= eps){
-      #pragma omp critical
-      {
-        for(int j = 0; j < p; j++) {
-          accepted_samples(i, j) = theta_sim[j];
-        }
+      for(int j = 0; j < p; j++) {
+        accepted_samples(i, j) = theta_sim[j];
+      }
         count++;
       }
     }
