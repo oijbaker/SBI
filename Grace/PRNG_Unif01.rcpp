@@ -1,0 +1,16 @@
+#include <Rcpp.h>
+#include <sitmo.h>
+// [[Rcpp::depends(sitmo)]]
+
+// [[Rcpp::export]]
+Rcpp::NumericVector unif_sitmo(double seed)
+{
+  
+  uint32_t coreseed = static_cast<uint32_t>(seed);
+  // Create a PRNG engine
+  sitmo::prng eng(coreseed);
+  
+  double mx = sitmo::prng::max();
+  return eng() / mx;
+  
+}
