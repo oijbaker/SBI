@@ -1,0 +1,55 @@
+### SM2 / SC2 Project
+# Using ABC/SIR to Model the Spread of Influenza in a Boarding School
+
+First we will import the neceassary dataset.
+
+```{r}
+library(pomp)
+library(Rcpp)
+data(bsflu)
+```
+
+The dataset contains infomation about the spread of Influenza over a period of 14 days, in a boarding school of 763 students.
+
+```{r}
+head(bsflu)
+```
+
+'B' contains the number of students who are bedridden with the flue on a given day. C contains the number of students who are covalescent, that is, unable to return to class.
+
+In order to model disease data, we will use the well-studied SIR model. This model models the number of people in three states: Susceptible, Infected, and Recovered. The model is defined by the following equations:
+$$
+\begin{align*}
+\frac{dS}{dt} &= -\beta S I \\
+\frac{dI}{dt} &= \beta S I - \gamma I \\
+\frac{dR}{dt} &= \gamma I
+\end{align*}
+$$
+
+Where $S$ is the number of susceptible individuals, $I$ is the number of infected individuals, and $R$ is the number of recovered individuals. $\beta$ is the rate of infection, and $\gamma$ is the rate of recovery.
+
+In the interest of speed, we will implement the SIR model in C++, then use RCPP to call the C++ code from R.
+
+```{r}
+sourceCpp(code = "
+  #include <Rcpp.h>
+  using namespace Rcpp;
+
+  // [[Rcpp::export]]
+  NumericVector SIR(NumericVector s, NumericVector i, NumericVector r, double s0, double i0, double r0, double beta, double gamma) {
+    s[0] = s0;
+    i[0] = i0;
+    r[0] = r0;
+
+    for (int t = 1; t < s.size(); t++) {
+      s[t] = s[t-1] - beta * s[t-1] * i[t-1];
+      i[t] = i[t-1] + beta * s[t-1] * i[t-1] - gamma * i[t-1];
+      r[t] = r[t-1] + gamma * i[t-1];
+    }
+
+    return i;
+  }
+")
+```
+
+To perform ABC, we will need to compare the simualted data to the observed data. To do this, we will compare the number of infected individuals on each day. Specifically, we compare the B column of the dataset to the number of infected individuals I in the SIR model.
