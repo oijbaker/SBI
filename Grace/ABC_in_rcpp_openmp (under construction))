@@ -15,22 +15,24 @@ double calc_dist(NumericVector x_sim, NumericVector x) {
 
 // [[Rcpp::export]]
 NumericMatrix abc_algorithm(int n, double eps, int p, NumericVector x) {
-  NumericMatrix accepted_samples(n, p);
-  int count = 0;
+NumericMatrix accepted_samples(n, p);
+int count = 0;
 
-#pragma omp parallel for shared(accepted_samples, count) default(none)
+#pragma omp parallel
+{
+  NumericVector theta_sim(p);
+  NumericVector x_sim(p);
+  double dist;
+
+  #pragma omp for
   for(int i = 0; i < n; i++) {
-    NumericVector theta_sim(p);
-    NumericVector x_sim(p);
-    double dist;
-
     theta_sim = runif(p, 0, 1); // sample from prior
     x_sim = sir(theta_sim); // simulate data from SIR model
     dist = calc_dist(x_sim, x); // calculate distance
     
     // Accept-reject step
     if(dist <= eps){
-    #pragma omp critical
+      #pragma omp critical
       {
         for(int j = 0; j < p; j++) {
           accepted_samples(i, j) = theta_sim[j];
