@@ -3,7 +3,7 @@
 // [[Rcpp::depends(sitmo)]]
 
 // [[Rcpp::export]]
-Rcpp::NumericVector unif_sitmo(double seed)
+double unif_sitmo(double seed)
 {
   
   uint32_t coreseed = static_cast<uint32_t>(seed);
@@ -11,6 +11,6 @@ Rcpp::NumericVector unif_sitmo(double seed)
   sitmo::prng eng(coreseed);
   
   double mx = sitmo::prng::max();
-  return eng() / mx;
-  
+  double x = eng() / mx;
+  return x;
 }
