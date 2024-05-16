@@ -1,0 +1,91 @@
+```{r}
+library(pomp)
+library(Rcpp)
+data(bsflu)
+```
+
+```{r}
+sourceCpp(code = "#include <Rcpp.h>
+  #include <RcppParallel.h>
+  #include <omp.h>
+  #include <random>
+  #include <iostream>
+  
+  using namespace std;
+  using namespace Rcpp;
+  
+
+  std::random_device rd;  // Will be used to obtain a seed for the random number engine
+  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+  std::uniform_real_distribution<> dis(0, 1);
+  
+  // [[Rcpp::depends(RcppParallel)]]
+  // [[Rcpp::plugins(openmp)]]
+
+  // Function to simulate data from SIR model
+  // [[Rcpp::export]]
+  NumericVector SIR(double s0, double i0, double r0, double beta, double gamma) {
+    NumericVector s(20);
+    NumericVector i(20);
+    NumericVector r(20);
+    
+    s[0] = s0;
+    i[0] = i0;
+    r[0] = r0;
+
+    for (int t = 1; t < s.size(); t++) {
+      s[t] = s[t-1] - beta * s[t-1] * i[t-1];
+      i[t] = i[t-1] + beta * s[t-1] * i[t-1] - gamma * i[t-1];
+      r[t] = r[t-1] + gamma * i[t-1];
+    }
+
+    return i;
+  }
+
+
+  // Function to calculate distance
+  double calc_dist(NumericVector x_sim, NumericVector x) {
+    double total = 0;
+    for (int i=0; i<x.size(); i++) {
+      total += pow(x[i]-x_sim[i], 2);
+    }
+    return total;
+  }
+  
+  // [[Rcpp::export]]
+  NumericMatrix ABC(int n, double eps, NumericVector x, int ncores) {
+    NumericMatrix accepted_samples(n, 3);
+    
+    #pragma omp parallel for
+    for (int k=0; k < n; k++) {
+      double beta = dis(gen);
+      double gamma = dis(gen);
+      
+      NumericVector I = SIR(762.0/763, 1.0/763, 0.0, beta, gamma);
+      if (calc_dist(I, x) < eps) {
+        accepted_samples(k, 0) = beta;
+        accepted_samples(k, 1) = gamma;
+        accepted_samples(k, 2) = calc_dist(I, x);
+      }
+    }
+    
+    
+    return accepted_samples;
+  }
+
+")
+```
+
+```{r}
+n <- 763
+x <- bsflu$B / n
+n_iter <- 100000
+eps <- 0.52
+
+res <- ABC(n_iter, eps, x, 4)
+```
+
+```{r}
+res
+sum(res[,3])
+```
