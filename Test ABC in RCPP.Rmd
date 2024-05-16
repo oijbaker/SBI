@@ -55,6 +55,8 @@ sourceCpp(code = "#include <Rcpp.h>
   // [[Rcpp::export]]
   NumericMatrix ABC(int n, double eps, NumericVector x, int ncores) {
     NumericMatrix accepted_samples(n, 3);
+
+    omp_set_num_threads(ncores);
     
     #pragma omp parallel for
     for (int k=0; k < n; k++) {
@@ -79,13 +81,20 @@ sourceCpp(code = "#include <Rcpp.h>
 ```{r}
 n <- 763
 x <- bsflu$B / n
-n_iter <- 100000
+n_iter <- 20000
 eps <- 0.52
 
-res <- ABC(n_iter, eps, x, 4)
+res <- ABC(n_iter, eps, x, 8)
 ```
 
 ```{r}
-res
-sum(res[,3])
+# remove 0s from res
+res <- res[rowSums(res) != 0,]
+```
+
+```{r}
+# plot a histogram of each parameter
+par(mfrow=c(1,2))
+hist(res[,1], main="Beta", xlab="Value")
+hist(res[,2], main="Gamma", xlab="Value")
 ```
