@@ -1,7 +1,18 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
 ### SM2 / SC2 Project
+
 # Using ABC/SIR to Model the Spread of Influenza in a Boarding School
 
-First we will import the neceassary dataset.
+For this group project, we investigated the problem of intractable likelihoods using Approximate Bayesian Computation. Such simulation based methods are best applied to this case where we are working with a model such that we are able to simulate results easily from it, yet have no analytical form of the likelihood available. This is exactly the case in epidemiology models, where we are unable to use methods such as maximum likelihood estimation to estimate the infection parameters given data.
+
+## Data-set
+
+We begin by importing the dataset we chose for this project: the `bsflu` dataset from the package `pomp`. This dataset records a 1978 Influenza outbreak in a boy's boarding school.
 
 ```{r}
 library(pomp)
@@ -9,16 +20,33 @@ library(Rcpp)
 data(bsflu)
 ```
 
-The dataset contains infomation about the spread of Influenza over a period of 14 days, in a boarding school of 763 students.
+The dataset tallies infection information over a period of 14 days, in a boarding school of 763 students.
 
 ```{r}
 head(bsflu)
 ```
 
-'B' contains the number of students who are bedridden with the flue on a given day. C contains the number of students who are covalescent, that is, unable to return to class.
+The column `B` contains the number of students who are bedridden with the flu on a given day (i.e. classes as 'infected'). C contains the number of students who are *convalescent* (i.e. not infected but yet unable to return to class).
 
-In order to model disease data, we will use the well-studied SIR model. This model models the number of people in three states: Susceptible, Infected, and Recovered. The model is defined by the following equations:
-$$
+```{r}
+library(tidyr)
+library(ggplot2)
+
+
+bsflu |>
+    gather(variable,value,-date,-day) |>
+    ggplot(aes(x=date,y=value,color=variable))+
+    geom_line()+
+    geom_point()+
+    labs(y="Number of Boys",x="Date",title="Boarding school infuenza outbreak (22nd Jan - 4th Feb)")+
+  scale_x_date(date_minor_breaks = "1 day",date_labels = "%b %d")+
+    theme_light()
+```
+
+
+## Model
+
+In order to model disease data, we will use the well-studied SIR model. This model models the number of people in three states: Susceptible, Infected, and Recovered. The model is defined by the following system of differential equations: $$
 \begin{align*}
 \frac{dS}{dt} &= -\beta S I \\
 \frac{dI}{dt} &= \beta S I - \gamma I \\
@@ -26,9 +54,11 @@ $$
 \end{align*}
 $$
 
-Where $S$ is the number of susceptible individuals, $I$ is the number of infected individuals, and $R$ is the number of recovered individuals. $\beta$ is the rate of infection, and $\gamma$ is the rate of recovery.
+Where $S$ is the proportion of susceptible individuals, $I$ is the proportion of infected individuals, and $R$ is the proportion of recovered individuals. $\beta$ is the rate of infection, and $\gamma$ is the rate of recovery.
 
-In the interest of speed, we will implement the SIR model in C++, then use RCPP to call the C++ code from R.
+With such a definition, we can translate the column `B` in the `bsflu` data directly to the variable $I$ simply by dividing `B` by the total number of students ($N=763$). Unfortunately, the column `C` has no analogy in the model, as it acts as a confusing 'between recovery' state that cannot be grouped in with either $I$ or $R$. Therefore going forward, we will primarily be using the column `B` as the observed data in our SIR model estimate.
+
+Approximate Bayesian computation is a simulation based approach, and will require many individual computations. In the interest of speed therefore, we will implement the SIR model in C++, then use RCPP to call the C++ code from R.
 
 ```{r}
 sourceCpp(code = "
@@ -52,4 +82,28 @@ sourceCpp(code = "
 ")
 ```
 
-To perform ABC, we will need to compare the simualted data to the observed data. To do this, we will compare the number of infected individuals on each day. Specifically, we compare the B column of the dataset to the number of infected individuals I in the SIR model.
+## ABC Definition
+
+Consider first the general case of intractable likelihood: having a model $f(.|\theta)$ with intractable likelihood $l(\theta|.)$ and parameter $\theta$.
+
+For ABC, we first repeatedly generate samples of $\theta$ from a prior distribution $\theta \sim \pi(.)$. Then for each generated value of $\theta$, we input this into our effectively 'black box' model to get simulated data $\tilde{y}(\theta) \sim f(.|\theta)$.
+
+We then need to define some distance metric $D$ between the observed data $y$ and simulated data $\tilde{y}(\theta)$, only accepting the proposed $\theta$ if this distance falls below a defined tolerance value $\epsilon$.
+
+Even a simple rejection sampling algorithm such as this can be shown to produce samples $\{\theta_1,...,\theta_M\}$ ($M$ being the number of accepted values) that are samples from the joint distribution:$$
+\begin{align*}
+    \pi_{\epsilon}(\theta,\tilde{y}|y) = \frac{\pi(\theta)f(\tilde{y}|\theta)\mathbb{I}(\tilde{y}\in A)}{\int_A\int_\Theta\pi(\theta)f(\tilde{y}|\theta) d \tilde{y} d \theta}
+\end{align*}$$ Where $\mathbb{I}$ is the indicator function, $\Theta$ is the support of $\theta$, and $A$ is the acceptance region defined by $D$, $y$, and $\epsilon$. Then given a suitable choice of tolerance value, this can produce an approximation to the posterior distribution of $\theta$ [1].$$
+\begin{align*}
+    \pi_{\epsilon}(\theta|y) = \int_A\pi_{\epsilon}(\theta,\tilde{y}|y)d\tilde{y} \approx \pi(\theta|y)
+\end{align*}$$
+
+Clearly here much of the resulting estimate relies on our choice of tolerance parameter $\epsilon$ and distance metric $D$, both of which will be looked at later. Something else to consider is that in practice the distance metric is applied to a *summary statistic* of the data rather than the raw data, in order to reduce dimensionality. This can be anything from the mean $\bar{y}$ and empirical quantiles, to more complex statistics such as kernels or auxiliary parameters. These methods will be looked at near the tail end of our investigation.
+
+## ABC Implementation
+
+For the distance metric within ABC, we will need to compare the simulated data to the observed data. However as noted in the Data-set section, only the column B can be used. Hence we will compare the B column of the dataset to the number of infected individuals I in our SIR model.
+
+## References
+
+[1] J.*-M. Marin, P. Pudlo, C. P. Robert, and R. J. Ryder, "Approximate bayesian computational methods," Stat Comput, vol. 22, pp. 1167--1180, Nov. 2012.*

@@ -1,0 +1,279 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\author{}
+\date{\vspace{-2.5em}}
+
+\begin{document}
+
+\hypertarget{sm2-sc2-project}{%
+\subsubsection{SM2 / SC2 Project}\label{sm2-sc2-project}}
+
+\hypertarget{using-abcsir-to-model-the-spread-of-influenza-in-a-boarding-school}{%
+\section{Using ABC/SIR to Model the Spread of Influenza in a Boarding
+School}\label{using-abcsir-to-model-the-spread-of-influenza-in-a-boarding-school}}
+
+For this group project, we investigated the problem of intractable
+likelihoods using Approximate Bayesian Computation. Such simulation
+based methods are best applied to this case where we are working with a
+model such that we are able to simulate results easily from it, yet have
+no analytical form of the likelihood available. This is exactly the case
+in epidemiology models, where we are unable to use methods such as
+maximum likelihood estimation to estimate the infection parameters given
+data.
+
+\hypertarget{data-set}{%
+\subsection{Data-set}\label{data-set}}
+
+We begin by importing the dataset we chose for this project: the
+\texttt{bsflu} dataset from the package \texttt{pomp}. This dataset
+records a 1978 Influenza outbreak in a boy's boarding school.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(pomp)}
+\FunctionTok{library}\NormalTok{(Rcpp)}
+\FunctionTok{data}\NormalTok{(bsflu)}
+\end{Highlighting}
+\end{Shaded}
+
+The dataset tallies infection information over a period of 14 days, in a
+boarding school of 763 students.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{head}\NormalTok{(bsflu)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##         date   B  C day
+## 1 1978-01-22   1  0   1
+## 2 1978-01-23   6  0   2
+## 3 1978-01-24  26  0   3
+## 4 1978-01-25  73  1   4
+## 5 1978-01-26 222  8   5
+## 6 1978-01-27 293 16   6
+\end{verbatim}
+
+The column \texttt{B} contains the number of students who are bedridden
+with the flu on a given day (i.e.~classes as `infected'). C contains the
+number of students who are \emph{convalescent} (i.e.~not infected but
+yet unable to return to class).
+
+\hypertarget{model}{%
+\subsection{Model}\label{model}}
+
+In order to model disease data, we will use the well-studied SIR model.
+This model models the number of people in three states: Susceptible,
+Infected, and Recovered. The model is defined by the following system of
+differential equations: \[
+\begin{align*}
+\frac{dS}{dt} &= -\beta S I \\
+\frac{dI}{dt} &= \beta S I - \gamma I \\
+\frac{dR}{dt} &= \gamma I
+\end{align*}
+\]
+
+Where \(S\) is the proportion of susceptible individuals, \(I\) is the
+proportion of infected individuals, and \(R\) is the proportion of
+recovered individuals. \(\beta\) is the rate of infection, and
+\(\gamma\) is the rate of recovery.
+
+With such a definition, we can translate the column \texttt{B} in the
+\texttt{bsflu} data directly to the variable \(I\) simply by dividing
+\texttt{B} by the total number of students (\(N=763\)). Unfortunately,
+the column \texttt{C} has no analogy in the model, as it acts as a
+confusing `between recovery' state that cannot be grouped in with either
+\(I\) or \(R\). Therefore going forward, we will primarily be using the
+column \texttt{B} as the observed data in our SIR model estimate.
+
+Approximate Bayesian computation is a simulation based approach, and
+will require many individual computations. In the interest of speed
+therefore, we will implement the SIR model in C++, then use RCPP to call
+the C++ code from R.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{sourceCpp}\NormalTok{(}\AttributeTok{code =} \StringTok{"}
+\StringTok{  \#include \textless{}Rcpp.h\textgreater{}}
+\StringTok{  using namespace Rcpp;}
+
+\StringTok{  // [[Rcpp::export]]}
+\StringTok{  NumericVector SIR(NumericVector s, NumericVector i, NumericVector r, double s0, double i0, double r0, double beta, double gamma) \{}
+\StringTok{    s[0] = s0;}
+\StringTok{    i[0] = i0;}
+\StringTok{    r[0] = r0;}
+
+\StringTok{    for (int t = 1; t \textless{} s.size(); t++) \{}
+\StringTok{      s[t] = s[t{-}1] {-} beta * s[t{-}1] * i[t{-}1];}
+\StringTok{      i[t] = i[t{-}1] + beta * s[t{-}1] * i[t{-}1] {-} gamma * i[t{-}1];}
+\StringTok{      r[t] = r[t{-}1] + gamma * i[t{-}1];}
+\StringTok{    \}}
+
+\StringTok{    return i;}
+\StringTok{  \}}
+\StringTok{"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{abc-definition}{%
+\subsection{ABC Definition}\label{abc-definition}}
+
+Consider first the general case of intractable likelihood: having a
+model \(f(.|\theta)\) with intractable likelihood \(l(\theta|.)\) and
+parameter \(\theta\).
+
+For ABC, we first repeatedly generate samples of \(\theta\) from a prior
+distribution \(\theta \sim \pi(.)\). Then for each generated value of
+\(\theta\), we input this into our effectively `black box' model to get
+simulated data \(\tilde{y}(\theta) \sim f(.|\theta)\).
+
+We then need to define some distance metric \(D\) between the observed
+data \(y\) and simulated data \(\tilde{y}(\theta)\), only accepting the
+proposed \(\theta\) if this distance falls below a defined tolerance
+value \(\epsilon\).
+
+Even a simple rejection sampling algorithm such as this can be shown to
+produce samples \(\{\theta_1,...,\theta_M\}\) (\(M\) being the number of
+accepted values) that are samples from the joint distribution:\[
+\begin{align*}
+    \pi_{\epsilon}(\theta,\tilde{y}|y) = \frac{\pi(\theta)f(\tilde{y}|\theta)\mathbb{I}(\tilde{y}\in A)}{\int_A\int_\Theta\pi(\theta)f(\tilde{y}|\theta) d \tilde{y} d \theta}
+\end{align*}\] Where \(\mathbb{I}\) is the indicator function,
+\(\Theta\) is the support of \(\theta\), and \(A\) is the acceptance
+region defined by \(D\), \(y\), and \(\epsilon\). Then given a suitable
+choice of tolerance value, this can produce an approximation to the
+posterior distribution of \(\theta\) {[}1{]}.\[
+\begin{align*}
+    \pi_{\epsilon}(\theta|y) = \int_A\pi_{\epsilon}(\theta,\tilde{y}|y)d\tilde{y} \approx \pi(\theta|y)
+\end{align*}\]
+
+Clearly here much of the resulting estimate relies on our choice of
+tolerance parameter \(\epsilon\) and distance metric \(D\), both of
+which will be looked at later. Something else to consider is that in
+practice the distance metric is applied to a \emph{summary statistic} of
+the data rather than the raw data, in order to reduce dimensionality.
+This can be anything from the mean \(\bar{y}\) and empirical quantiles,
+to more complex statistics such as kernels or auxiliary parameters.
+These methods will be looked at near the tail end of our investigation.
+
+\hypertarget{abc-implementation}{%
+\subsection{ABC Implementation}\label{abc-implementation}}
+
+For the distance metric within ABC, we will need to compare the
+simulated data to the observed data. However as noted in the Data-set
+section, only the column B can be used. Hence we will compare the B
+column of the dataset to the number of infected individuals I in our SIR
+model.
+
+\hypertarget{references}{%
+\subsection{References}\label{references}}
+
+{[}1{]} J.\emph{-M. Marin, P. Pudlo, C. P. Robert, and R. J. Ryder,
+``Approximate bayesian computational methods,'' Stat Comput, vol.~22,
+pp.~1167--1180, Nov.~2012.}
+
+\end{document}
