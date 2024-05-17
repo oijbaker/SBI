@@ -24,9 +24,23 @@ NumericVector SIR(NumericVector s, NumericVector i, NumericVector r, double s0, 
 
 
 // Function to calculate distance
-double calc_dist(NumericVector x_sim, NumericVector x) {
-  // Implement your distance calculation here
+// [[Rcpp::export]]
+double calc_dist(NumericVector x_sum, NumericVector x) {
+    if (x_sum.size() != x.size()) {
+        stop("Vectors must be of the same length");
+    }
+    
+    double sum = 0.0;
+    int n = x.size();
+
+    #pragma omp parallel for reduction(+:sum)
+    for (int i = 0; i < n; ++i) {
+        sum += std::pow(x_sum[i] - x[i], 2);
+    }
+    
+    return std::sqrt(sum);
 }
+
 
 // [[Rcpp::export]]
 NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores) {
