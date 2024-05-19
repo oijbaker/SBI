@@ -58,12 +58,12 @@ NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores)
   
   NumericMatrix accepted_samples(n, p);
   int count = 0;
-  NumericVector zeros(x.size(), 0);
 
   #pragma omp parallel num_threads(ncores)
   {
     NumericVector theta_sim(p);
     NumericVector x_sim(x.size());
+    NumericVector zeros(x.size(), 0);
     int local_count = 0;
     
     #pragma omp for
