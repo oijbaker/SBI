@@ -11,7 +11,11 @@ using namespace Rcpp;
 
 // Function to simulate data from SIR model
 // [[Rcpp::export]]
-NumericVector SIR(NumericVector s, NumericVector i, NumericVector r, double s0, double i0, double r0, double beta, double gamma) {
+NumericVector SIR(double s0, double i0, double r0, double beta, double gamma) {
+  NumericVector s(20);
+  NumericVector i(20);
+  NumericVector r(20);
+  
   s[0] = s0;
   i[0] = i0;
   r[0] = r0;
@@ -34,22 +38,18 @@ double unif_sitmo(int seed) {
   return x;
 }
 
-// Function to calculate distance
-// [[Rcpp::export]]
 double calc_dist(NumericVector x_sim, NumericVector x) {
-  if (x_sim.size() != x.size()) {
-    stop("Vectors must be of the same length");
+  double total = 0.0;
+  #pragma omp parallel reduction( + : total)
+  {
+    double inner_sum = 0.0;
+    #pragma omp for
+    for (int i=0; i<x_sim.size(); i++) {
+      inner_sum += pow(x[i]-x_sim[i], 2);
+    }
+    total += inner_sum;
   }
-  
-  double sum = 0.0;
-  int n = x.size();
-
-  #pragma omp parallel for reduction(+:sum)
-  for (int i = 0; i < n; ++i) {
-    sum += std::pow(x_sim[i] - x[i], 2);
-  }
-  
-  return std::sqrt(sum);
+  return total;
 }
 
 // [[Rcpp::export]]
@@ -57,43 +57,34 @@ NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores)
 {
   
   NumericMatrix accepted_samples(n, p);
+  RcppParallel::RMatrix<double> w(accepted_samples);
   int count = 0;
-
+  double dist;
+  NumericVector theta_sim(p);
+  
   #pragma omp parallel num_threads(ncores)
   {
-    NumericVector theta_sim(p);
-    NumericVector x_sim(x.size());
-    NumericVector zeros(x.size(), 0);
-    int local_count = 0;
-    
     #pragma omp for
-    for (int i = 0; i < n; i++) {
-      theta_sim[0] = unif_sitmo(i); // sample beta from prior
-      theta_sim[1] = unif_sitmo(i + n); // sample gamma from prior
-      x_sim = SIR(zeros, zeros, zeros, 762.0/763.0, 1.0/763.0, 0, theta_sim[0], theta_sim[1]); // simulate data from SIR model
-      #pragma omp critical
-      {
-      std::cout << "zeros: " << zeros << std::endl;
-      std::cout << "theta_sim[0]: " << theta_sim[0] << std::endl;
-      std::cout << "theta_sum[1]: " << theta_sim[1] << std::endl;
-      std::cout << "x_sim: " << x_sim << std::endl;
-      }
-      double dist = calc_dist(x_sim, x); // calculate distance
-      //std::cout << "dist: " << dist << std::endl;
-      // Accept-reject step
-      if (dist <= eps) {
-        #pragma omp critical
-        {
-          for (int j = 0; j < p; j++) {
-            accepted_samples(count, j) = theta_sim[j];
-          }
-          count++;
-        }
+    for (int i=0; i<n; i++) {
+      theta_sim[0] = unif_sitmo(i);
+      theta_sim[1] = unif_sitmo(i+n);
+      
+      NumericVector I = SIR(762.0/763.0, 1.0/763.0, 0.0, theta_sim[0], theta_sim[1]);
+      dist = calc_dist(I, x);
+      if (dist < eps) {
+        accepted_samples(i, 0) = theta_sim[0];
+        accepted_samples(i, 1) = theta_sim[1];
       }
     }
   }
   
-  Rprintf("Acceptance rate: %f\n", (double)count / n);
+  for (int i=0; i<n; i++) {
+    if (accepted_samples(i, 0) != 0) {
+      count += 1;
+    }
+  }
+  std::cout << "Acceptance rate: " << (double)count / n << std::endl;
   return accepted_samples;
   
 }
+
