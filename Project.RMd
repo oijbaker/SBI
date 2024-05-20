@@ -82,6 +82,24 @@ sourceCpp(code = "
 ")
 ```
 
+Below is a demonstration of the SIR model above, with $\beta = 0.8$ and $\gamma = 0.2$.
+
+```{r}
+s <- numeric(20)
+i <- numeric(20)
+r <- numeric(20)
+
+sir <- SIR(s, i, r, 1 - 1/763, 1/763, 0, 0.8, 0.2)
+
+# convert SIR to a data frame
+sir <- data.frame(day = 1:20, sir = sir)
+print(sir)
+ggplot(aes(x=day,y=sir), data = sir)+
+  geom_line(color="red")+
+  geom_point(color="red")+
+  labs(y="Proportion of Infected",x="Day",title="SIR Model with beta=0.8, gamma=0.2")+theme_light()
+```
+
 ## ABC Definition
 
 Consider first the general case of intractable likelihood: having a model $f(.|\theta)$ with intractable likelihood $l(\theta|.)$ and parameter $\theta$.
