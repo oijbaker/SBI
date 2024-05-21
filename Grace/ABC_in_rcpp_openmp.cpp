@@ -72,14 +72,14 @@ NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores)
       NumericVector I = SIR(762.0/763.0, 1.0/763.0, 0.0, theta_sim[0], theta_sim[1]);
       dist = calc_dist(I, x);
       if (dist < eps) {
-        accepted_samples(i, 0) = theta_sim[0];
-        accepted_samples(i, 1) = theta_sim[1];
+        w(i, 0) = theta_sim[0];
+        w(i, 1) = theta_sim[1];
       }
     }
   }
   
   for (int i=0; i<n; i++) {
-    if (accepted_samples(i, 0) != 0) {
+    if (w(i, 0) != 0) {
       count += 1;
     }
   }
