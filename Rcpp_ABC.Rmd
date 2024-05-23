@@ -6,6 +6,7 @@ library(Rcpp)
 library(ggplot2)
 ```
 
+
 ```{r}
 sourceCpp(code='
 #include <Rcpp.h>
@@ -20,24 +21,6 @@ using namespace Rcpp;
 // [[Rcpp::plugins(openmp)]]
 
 // Function to simulate data from SIR model
-// [[Rcpp::export]]
-NumericVector SIR(double s0, double i0, double r0, double beta, double gamma) {
-  NumericVector s(20);
-  NumericVector i(20);
-  NumericVector r(20);
-  
-  s[0] = s0;
-  i[0] = i0;
-  r[0] = r0;
-
-  for (int t = 1; t < s.size(); t++) {
-    s[t] = s[t-1] - beta * s[t-1] * i[t-1];
-    i[t] = i[t-1] + beta * s[t-1] * i[t-1] - gamma * i[t-1];
-    r[t] = r[t-1] + gamma * i[t-1];
-  }
-
-  return i;
-}
 
 // [[Rcpp::export]]
 double unif_sitmo(int seed) {
@@ -48,16 +31,24 @@ double unif_sitmo(int seed) {
   return x;
 }
 
-double calc_dist(NumericVector x_sim, NumericVector x) {
+double calc_dist(double* x_sim, NumericVector x) {
   double total;
   #pragma omp parallel reduction( + : total)
   {
     double inner_sum;
     #pragma omp for
-    for (int i=0; i<x_sim.size(); i++) {
+    for (int i=0; i<20; i++) {
       inner_sum += pow(x[i]-x_sim[i], 2);
     }
     total += inner_sum;
+  }
+  return total;
+}
+
+double calc_dist_serial(double* x_sim, NumericVector x) {
+  double total;
+  for (int i=0; i<20; i++) {
+    total += pow(x[i]-x_sim[i], 2);
   }
   return total;
 }
@@ -75,14 +66,35 @@ NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores)
     #pragma omp for
     for (int i=0; i<n; i++) {
       double theta_sim[2];
+      #pragma omp critical
+      {
       theta_sim[0] = unif_sitmo(i);
       theta_sim[1] = unif_sitmo(i+n);
+      }
       
-      NumericVector I = SIR(762.0/763.0, 1.0/763.0, 0.0, theta_sim[1], theta_sim[2]);
-      dist = calc_dist(I, x);
+      // NumericVector I = SIR(762.0/763.0, 1.0/763.0, 0.0, theta_sim[1], theta_sim[2]);
+
+      double S[20];
+      double I[20];
+      double R[20];
+
+      S[0] = 762.0/763.0;
+      I[0] = 1.0/763.0;
+      R[0] = 0.0;
+
+      for (int t = 1; t < 20; t++) {
+        S[t] = S[t-1] - theta_sim[0] * S[t-1] * I[t-1];
+        I[t] = I[t-1] + theta_sim[0] * S[t-1] * I[t-1] - theta_sim[1] * I[t-1];
+        R[t] = R[t-1] + theta_sim[1] * I[t-1];
+      }
+
+      #pragma omp critical
+      {
+      dist = calc_dist_serial(I, x);
       if (dist < eps) {
         accepted_samples(i, 0) = theta_sim[0];
         accepted_samples(i, 1) = theta_sim[1];
+        }
       }
     }
   }
@@ -105,14 +117,28 @@ library(pomp)
 data(bsflu)
 x <- bsflu$B
 ```
+
 ```{r}
-calc_dist_old(x, x+100)
+samples <- ABC(10000000, 0.7, 2, x/763.0, 4)
 ```
 
 ```{r}
-SIR(0.99, 0.01, 0.0, 0.2, 0.4)
+# filter out the zeros
+samples <- samples[samples[,1] != 0,]
 ```
 
 ```{r}
-ABC(10000, 1, 2, x/673.0, 8)
+ggplot(data=as.data.frame(samples), aes(x=V1, y=V2)) + geom_point()
 ```
+
+```{r}
+# plot histogram of the parameters
+ggplot(data=as.data.frame(samples), aes(x=V1)) + geom_histogram()
+```
+
+```{r}
+ggplot(data=as.data.frame(samples), aes(x=V2)) + geom_histogram()
+```
+
+
+
