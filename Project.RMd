@@ -17,6 +17,8 @@ We begin by importing the dataset we chose for this project: the `bsflu` dataset
 ```{r}
 library(pomp)
 library(Rcpp)
+library(sitmo)
+library(ggplot2)
 data(bsflu)
 ```
 
@@ -120,8 +122,178 @@ Clearly here much of the resulting estimate relies on our choice of tolerance pa
 
 ## ABC Implementation
 
-For the distance metric within ABC, we will need to compare the simulated data to the observed data. However as noted in the Data-set section, only the column B can be used. Hence we will compare the B column of the dataset to the number of infected individuals I in our SIR model.
+For the distance metric within ABC, we will need to compare the simulated data to the observed data. However as noted in the Data-set section, only the column B can be used. Hence we will compare the B column of the dataset to the number of infected individuals I in our SIR model. Similar to the approach of [2], we will use the mean squared error between the proportions of infected individuals in the observed data and the simulated data as our distance metric, and compare it to the other distance metric used; the absolute error between the proportion of infected individuals on the final day of the observed data and the simulated data.
+
+The following code implements the ABC/SIR algorithm in C++.
+
+```{r}
+sourceCpp(code='
+#include <Rcpp.h>
+#include <RcppParallel.h>
+#include <omp.h>
+#include <sitmo.h>
+#include <cmath>
+using namespace Rcpp;
+
+// [[Rcpp::depends(RcppParallel)]]
+// [[Rcpp::depends(sitmo)]]
+// [[Rcpp::plugins(openmp)]]
+
+// Function to simulate data from SIR model
+
+// [[Rcpp::export]]
+double unif_sitmo(int seed) {
+  uint32_t coreseed = static_cast<uint32_t>(seed);
+  sitmo::prng eng(coreseed);
+  double mx = sitmo::prng::max();
+  double x = eng() / mx;
+  return x;
+}
+
+double calc_dist_serial(double* x_sim, NumericVector x) {
+  double total;
+  for (int i=0; i<20; i++) {
+    total += pow(x[i]-x_sim[i], 2);
+  }
+  return total;
+}
+
+// [[Rcpp::export]]
+NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int metric)
+{
+  
+  NumericMatrix accepted_samples(n, p);
+  int count = 0;
+  double dist;
+
+  #pragma omp parallel num_threads(ncores)
+  {
+    double theta_sim[2];
+    #pragma omp for
+    for (int i=0; i<n; i++) {
+
+      #pragma omp critical
+      {
+      theta_sim[0] = unif_sitmo(i);
+      theta_sim[1] = unif_sitmo(i+n);
+      }
+      
+      // NumericVector I = SIR(762.0/763.0, 1.0/763.0, 0.0, theta_sim[1], theta_sim[2]);
+
+      double S[20];
+      double I[20];
+      double R[20];
+
+      S[0] = 762.0/763.0;
+      I[0] = 1.0/763.0;
+      R[0] = 0.0;
+
+      for (int t = 1; t < 20; t++) {
+        S[t] = S[t-1] - theta_sim[0] * S[t-1] * I[t-1];
+        I[t] = I[t-1] + theta_sim[0] * S[t-1] * I[t-1] - theta_sim[1] * I[t-1];
+        R[t] = R[t-1] + theta_sim[1] * I[t-1];
+      }
+
+      #pragma omp critical
+      {
+      if (metric == 1) {
+        dist = calc_dist_serial(I, x);
+      } else if (metric == 2) {
+        dist = pow(I[19]-x[19], 2);
+      }
+      if (dist < eps) {
+        accepted_samples(i, 0) = theta_sim[0];
+        accepted_samples(i, 1) = theta_sim[1];
+        count++;
+      }
+      }
+    }
+  }
+  
+  std::cout << "Acceptance rate: " << (double)count / n << std::endl;
+  return accepted_samples;
+  
+}
+
+')
+```
+
+The function `ABC` takes in the number of samples `n`, the tolerance `eps`, the number of parameters `p`, the observed data `x`, and the number of cores to use `ncores`. It then returns a matrix of accepted samples. It is important to note that we should normalise the `x` vector before inputting it into the ABC function, as the SIR model uses proportions rather than raw numbers.
+
+As an example, we can run the ABC algorithm with $10^6$ samples, a tolerance of 0.8, and 2 parameters, using the mean squared error as the distance metric.
+
+```{r}
+x <- bsflu$B/763
+accepted_samples <- ABC(1e7, 0.8, 2, x, 4, 1)
+
+# remove zeros
+accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
+```
+
+We can then plot the marginal posterior distributions of the parameters $\beta$ and $\gamma$.
+
+```{r}
+# plot the density histograms
+ggplot(aes(x=accepted_samples[,1]), data = as.data.frame(accepted_samples))+
+  geom_density(fill="blue",color="black")+
+  labs(x="Beta",y="Frequency",title=expression(paste("Marginal Posterior Distribution of ", beta)))+theme_light()
+```
+```{r}
+ggplot(aes(x=accepted_samples[,2]), data = as.data.frame(accepted_samples))+
+  geom_density(fill="blue",color="black")+
+  labs(x="Gamma",y="Density",title=expression(paste("Marginal Posterior Distribution of ", gamma)))+theme_light()
+```
+
+Now we can compare these posterior distributions to the distributions obtained when we use the absolute error between the proportion of infected individuals on the final day of the observed data and the simulated data as the distance metric.
+
+```{r}
+accepted_samples2 <- ABC(1e7, 0.01, 2, x, 4, 2)
+accepted_samples2 <- accepted_samples2[!rowSums(accepted_samples2==0),]
+```
+
+```{r}
+ggplot(aes(x=accepted_samples2[,1]), data = as.data.frame(accepted_samples2))+
+  geom_density(fill="blue",color="black")+
+  labs(x="Beta",y="Frequency",title=expression(paste("Marginal Posterior Distribution of ", beta)))+theme_light()
+```
+
+```{r}
+ggplot(aes(x=accepted_samples2[,2]), data = as.data.frame(accepted_samples2))+
+  geom_density(fill="blue",color="black")+
+  labs(x="Gamma",y="Density",title=expression(paste("Marginal Posterior Distribution of ", gamma)))+theme_light()
+```
+
+## Acceptance Rates
+
+We can plot the acceptance rates for the two distance metrics as a function of the tolerance value.
+
+```{r}
+eps <- seq(0.1, 3, 0.1)
+acceptance_rates <- numeric(length(eps))
+for (i in 1:length(eps)) {
+  accepted_samples <- ABC(1e7, eps[i], 2, x, 4, 1)
+  acceptance_rates[i] <- sum(accepted_samples[,1] != 0) / nrow(accepted_samples)
+}
+```
+
+```{r}
+eps2 <- seq(0, 0.1, 0.005)
+acceptance_rates2 <- numeric(length(eps2))
+for (i in 1:length(eps2)) {
+  accepted_samples2 <- ABC(1e7, eps2[i], 2, x, 4, 2)
+    acceptance_rates2[i] <- sum(accepted_samples2[,1] != 0) / nrow(accepted_samples)
+}
+```
+
+```{r}
+# plot the acceptance rates on two adjacent plots
+par(mfrow=c(1,2))
+plot(eps, acceptance_rates, type="l", xlab="Tolerance", ylab="Acceptance Rate", main="Mean Squared Error")
+plot(eps2, acceptance_rates2, type="l", xlab="Tolerance", ylab="Acceptance Rate", main="Absolute Error")
+```
 
 ## References
 
-[1] J.*-M. Marin, P. Pudlo, C. P. Robert, and R. J. Ryder, "Approximate bayesian computational methods," Stat Comput, vol. 22, pp. 1167--1180, Nov. 2012.*
+[1] J.-M. Marin, P. Pudlo, C. P. Robert, and R. J. Ryder, "Approximate bayesian computational methods" Stat Comput, vol. 22, pp. 1167--1180, Nov. 2012.
+
+[2] A. Minter, and R. Retkute, "Approximate Bayesian Computation for infectious disease modelling". Epidemics, vol. 29, p.100368.

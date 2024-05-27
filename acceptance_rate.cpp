@@ -1,28 +1,11 @@
-# Making C++ Sims work R
-
-```{r}
-# Load the Rcpp package
-library(Rcpp)
-library(ggplot2)
-```
-
-
-```{r}
-sourceCpp(code='
-#include <Rcpp.h>
-#include <RcppParallel.h>
 #include <omp.h>
 #include <sitmo.h>
 #include <cmath>
 using namespace Rcpp;
 
-// [[Rcpp::depends(RcppParallel)]]
-// [[Rcpp::depends(sitmo)]]
-// [[Rcpp::plugins(openmp)]]
 
 // Function to simulate data from SIR model
 
-// [[Rcpp::export]]
 double unif_sitmo(int seed) {
   uint32_t coreseed = static_cast<uint32_t>(seed);
   sitmo::prng eng(coreseed);
@@ -53,15 +36,12 @@ double calc_dist_serial(double* x_sim, NumericVector x) {
   return total;
 }
 
-// [[Rcpp::export]]
-NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores)
+double ABC(int n, double eps, int p)
 {
-  
-  NumericMatrix accepted_samples(n, p);
   int count = 0;
   double dist;
 
-  #pragma omp parallel num_threads(ncores)
+  #pragma omp parallel num_threads(8)
   {
     double theta_sim[2];
     #pragma omp for
@@ -93,71 +73,31 @@ NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores)
       {
       dist = calc_dist_serial(I, x);
       if (dist < eps) {
-        accepted_samples(i, 0) = theta_sim[0];
-        accepted_samples(i, 1) = theta_sim[1];
         count++;
       }
       }
     }
   }
   
-  std::cout << "Acceptance rate: " << (double)count / n << std::endl;
-  return accepted_samples;
+  double acceptance_rate = (double) count / n;
+  std::cout << eps << " " << acceptance_rate << std::endl;
+  return acceptance_rate;
   
 }
 
-')
-```
+int main() {
+  double eps_min = 0;
+  double eps_max = 5;
+  double eps_step = 0.05;
 
-```{r}
-library(pomp)
-data(bsflu)
-x <- bsflu$B
-```
+  double acceptance_rates[(eps_max-eps_min)/eps_step];
+  double ar;
 
-```{r}
-samples <- ABC(10000000, 0.6, 2, x/763.0, 4)
-```
+  int n = 100;
+  for (double eps = eps_min; eps < eps_max; eps += eps_step) {
+    ar = ABC(n, eps, 2);
+    acceptance_rates[(eps-eps_min)/eps_step] = ar;
+  }
 
-```{r}
-eps_min <- 0.1
-eps_max <- 3
-eps <- seq(eps_min, eps_max, length.out=30)
-ncores <- 4
-n <- 10000000
-p <- 2
-```
-
-```{r}
-results <- numeric(length(eps))
-for (i in 1:length(eps)) {
-  samples <- ABC(n, eps[i], p, x/763.0, ncores)
-  # calculate the acceptance rate
-  results[i] <- sum(samples[,1] != 0) / n
+  return 0;
 }
-```
-
-# Plot the Acceptance Rate
-```{r}
-ggplot(data=data.frame(eps=eps, results=results), aes(x=eps, y=results)) + geom_point() + geom_line()
-```
-```{r}
-# filter out the zeros
-samples <- samples[samples[,1] != 0,]
-```
-
-```{r}
-ggplot(data=as.data.frame(samples), aes(x=V1, y=V2)) + geom_point()
-```
-
-```{r}
-# plot histogram of the parameters
-ggplot(data=as.data.frame(samples), aes(x=V1)) + geom_histogram()
-```
-
-```{r}
-ggplot(data=as.data.frame(samples), aes(x=V2)) + geom_histogram()
-```
-
-
-
