@@ -1,0 +1,218 @@
+# Making C++ Sims work R
+
+```{r}
+# Load the Rcpp package
+library(Rcpp)
+library(ggplot2)
+```
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+NumericVector SIR(NumericVector s, NumericVector i, NumericVector r, double s0, double i0, double r0, double beta, double gamma) {
+    s[0] = s0;
+    i[0] = i0;
+    r[0] = r0;
+
+    for (int t = 1; t < s.size(); t++) {
+      s[t] = s[t-1] - beta * s[t-1] * i[t-1];
+      i[t] = i[t-1] + beta * s[t-1] * i[t-1] - gamma * i[t-1];
+      r[t] = r[t-1] + gamma * i[t-1];
+    }
+
+    return i;
+}
+```
+
+```{Rcpp}
+#include <Rcpp.h>
+#include <RcppParallel.h>
+#include <omp.h>
+#include <sitmo.h>
+#include <cmath>
+using namespace Rcpp;
+
+// [[Rcpp::depends(RcppParallel)]]
+// [[Rcpp::depends(sitmo)]]
+// [[Rcpp::plugins(openmp)]]
+
+// Function to simulate data from SIR model
+
+// [[Rcpp::export]]
+double unif_sitmo(int seed) {
+  uint32_t coreseed = static_cast<uint32_t>(seed);
+  sitmo::prng eng(coreseed);
+  double mx = sitmo::prng::max();
+  double x = eng() / mx;
+  return x;
+}
+
+double calc_dist(double* x_sim, NumericVector x) {
+  double total;
+  #pragma omp parallel reduction( + : total)
+  {
+    double inner_sum;
+    #pragma omp for
+    for (int i=0; i<20; i++) {
+      inner_sum += pow(x[i]-x_sim[i], 2);
+    }
+    total += inner_sum;
+  }
+  return total;
+}
+
+double calc_dist_serial(double* x_sim, NumericVector x) {
+  double total;
+  for (int i=0; i<20; i++) {
+    total += pow(x[i]-x_sim[i], 2);
+  }
+  return total;
+}
+
+// [[Rcpp::export]]
+NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores)
+{
+  
+  NumericMatrix accepted_samples(n, p);
+  int count = 0;
+  double dist;
+
+  #pragma omp parallel num_threads(ncores)
+  {
+    #pragma omp for
+    for (int i=0; i<n; i++) {
+      double theta_sim[2];
+      #pragma omp critical
+      {
+      theta_sim[0] = 3*unif_sitmo(i);
+      theta_sim[1] = unif_sitmo(i+n);
+      }
+      
+      // NumericVector I = SIR(762.0/763.0, 1.0/763.0, 0.0, theta_sim[1], theta_sim[2]);
+
+      double S[20];
+      double I[20];
+      double R[20];
+
+      S[0] = 762.0/763.0;
+      I[0] = 1.0/763.0;
+      R[0] = 0.0;
+
+      for (int t = 1; t < 20; t++) {
+        S[t] = S[t-1] - theta_sim[0] * S[t-1] * I[t-1];
+        I[t] = I[t-1] + theta_sim[0] * S[t-1] * I[t-1] - theta_sim[1] * I[t-1];
+        R[t] = R[t-1] + theta_sim[1] * I[t-1];
+      }
+
+      #pragma omp critical
+      {
+      dist = calc_dist_serial(I, x);
+      if (dist < eps) {
+        accepted_samples(i, 0) = theta_sim[0];
+        accepted_samples(i, 1) = theta_sim[1];
+        }
+      }
+    }
+  }
+  
+  for (int i=0; i<n; i++) {
+    if (accepted_samples(i, 0) != 0) {
+      count += 1;
+    }
+  }
+  std::cout << "Acceptance rate: " << (double)count / n << std::endl;
+  return accepted_samples;
+  
+}
+
+```
+
+```{r}
+library(pomp)
+data(bsflu)
+x <- bsflu$B
+```
+
+```{r}
+samples <- ABC(10000, 0.7, 2, x/763.0, 4)
+```
+
+```{r}
+# filter out the zeros
+samples <- samples[samples[,1] != 0,]
+```
+
+```{r}
+plot(samples)
+par(mfrow=c(1,2))
+hist(samples[,1], breaks = 30, probability = TRUE)
+hist(samples[,2], breaks = 30, probability = TRUE)
+```
+```{r}
+s <- numeric(20)
+i <- numeric(20)
+r <- numeric(20)
+
+I <- SIR(s, i, r, 1 - 1/763, 1/763, 0, max_x, max_y)
+plot(x, type="l", xlab="Day", ylab="Proportion of Infected", main="Observed Data")
+lines(I, col="blue")
+```
+
+
+```{r}
+library(MASS)
+install.packages("ks")
+library(ks)
+```
+
+```{r}
+colnames(samples) <- c("beta", "gamma")
+```
+```{r}
+kde_result <- kde2d(samples[,1], samples[,2], n=50)
+```
+
+
+```{r}
+kde_df <- data.frame(
+  x = rep(kde_result$x, each = length(kde_result$y)),
+  y = rep(kde_result$y, times = length(kde_result$x)),
+  z = as.vector(kde_result$z)
+)
+```
+
+
+```{r}
+ggplot(kde_df, aes(x = x, y = y, z = z)) +
+  geom_contour_filled() +
+  labs(title = "2D KDE Filled Contour Plot",
+       x = "X-axis",
+       y = "Y-axis",
+       fill = "Density") +
+  theme_minimal()
+
+```
+
+```{r}
+# Extract KDE results
+x <- kde_result$x
+y <- kde_result$y
+z <- kde_result$z
+
+# Find the indices of the maximum density value
+max_density_index <- which(z == max(z), arr.ind = TRUE)
+
+# Get the corresponding x and y values for the maximum density
+max_x <- x[max_density_index[1]]
+max_y <- y[max_density_index[2]]
+```
+
+```{r}
+# Print the results
+max_density_value <- max(z)
+cat("Maximum KDE Density Value:", max_density_value, "\n")
+cat("Corresponding x value:", max_x, "\n")
+cat("Corresponding y value:", max_y, "\n")
+```
