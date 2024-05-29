@@ -14,7 +14,8 @@ For this group project, we investigated the problem of intractable likelihoods u
 
 We begin by importing the dataset we chose for this project: the `bsflu` dataset from the package `pomp`. This dataset records a 1978 Influenza outbreak in a boy's boarding school.
 
-```{r}
+
+```r
 library(pomp)
 library(Rcpp)
 library(sitmo)
@@ -24,13 +25,25 @@ data(bsflu)
 
 The dataset tallies infection information over a period of 14 days, in a boarding school of 763 students.
 
-```{r}
+
+```r
 head(bsflu)
+```
+
+```
+##         date   B  C day
+## 1 1978-01-22   1  0   1
+## 2 1978-01-23   6  0   2
+## 3 1978-01-24  26  0   3
+## 4 1978-01-25  73  1   4
+## 5 1978-01-26 222  8   5
+## 6 1978-01-27 293 16   6
 ```
 
 The column `B` contains the number of students who are bedridden with the flu on a given day (i.e. classes as 'infected'). C contains the number of students who are *convalescent* (i.e. not infected but yet unable to return to class).
 
-```{r}
+
+```r
 library(tidyr)
 library(ggplot2)
 
@@ -44,6 +57,8 @@ bsflu |>
   scale_x_date(date_minor_breaks = "1 day",date_labels = "%b %d")+
     theme_light()
 ```
+
+![](Project_files/figure-latex/unnamed-chunk-3-1.pdf)<!-- --> 
 
 
 ## Model
@@ -62,7 +77,8 @@ With such a definition, we can translate the column `B` in the `bsflu` data dire
 
 Approximate Bayesian computation is a simulation based approach, and will require many individual computations. In the interest of speed therefore, we will implement the SIR model in C++, then use RCPP to call the C++ code from R.
 
-```{r}
+
+```r
 sourceCpp(code = "
   #include <Rcpp.h>
   using namespace Rcpp;
@@ -86,7 +102,8 @@ sourceCpp(code = "
 
 Below is a demonstration of the SIR model above, with $\beta = 0.8$ and $\gamma = 0.2$.
 
-```{r}
+
+```r
 s <- numeric(20)
 i <- numeric(20)
 r <- numeric(20)
@@ -96,11 +113,40 @@ sir <- SIR(s, i, r, 1 - 1/763, 1/763, 0, 0.8, 0.2)
 # convert SIR to a data frame
 sir <- data.frame(day = 1:20, sir = sir)
 print(sir)
+```
+
+```
+##    day         sir
+## 1    1 0.001310616
+## 2    2 0.002095611
+## 3    3 0.003349026
+## 4    4 0.005347643
+## 5    5 0.008527571
+## 6    6 0.013569424
+## 7    7 0.021518985
+## 8    8 0.033942171
+## 9    9 0.053083221
+## 10  10 0.081917372
+## 11  11 0.123828512
+## 12  12 0.181407697
+## 13  13 0.253810306
+## 14  14 0.333041786
+## 15  15 0.402372183
+## 16  16 0.442376936
+## 17  17 0.443721280
+## 18  18 0.413185769
+## 19  19 0.365510796
+## 20  20 0.313113502
+```
+
+```r
 ggplot(aes(x=day,y=sir), data = sir)+
   geom_line(color="red")+
   geom_point(color="red")+
   labs(y="Proportion of Infected",x="Day",title="SIR Model with beta=0.8, gamma=0.2")+theme_light()
 ```
+
+![](Project_files/figure-latex/unnamed-chunk-5-1.pdf)<!-- --> 
 
 ## ABC Definition
 
@@ -126,7 +172,8 @@ For the distance metric within ABC, we will need to compare the simulated data t
 
 The following code implements the ABC/SIR algorithm in C++.
 
-```{r}
+
+```r
 sourceCpp(code='
 #include <Rcpp.h>
 #include <RcppParallel.h>
@@ -222,10 +269,10 @@ The function `ABC` takes in the number of samples `n`, the tolerance `eps`, the 
 
 As an example, we can run the ABC algorithm with $10^7$ samples, a tolerance of 0.8, and 2 parameters, using the mean squared error as the distance metric.
 
-```{r}
-x <- c(rep(1/763,5), 2/763, bsflu$B/763)
-length(x)
-accepted_samples <- ABC(1e7, 0.55, 2, x, 4, 1)
+
+```r
+x <- bsflu$B/763
+accepted_samples <- ABC(1e7, 0.8, 2, x, 4, 1)
 
 # remove zeros
 accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
@@ -233,43 +280,57 @@ accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
 
 We can then plot the marginal posterior distributions of the parameters $\beta$ and $\gamma$.
 
-```{r}
+
+```r
 # plot the density histograms
 ggplot(aes(x=accepted_samples[,1]), data = as.data.frame(accepted_samples))+
   geom_density(fill="blue",color="black")+
   labs(x="Beta",y="Frequency",title=expression(paste("Marginal Posterior Distribution of ", beta)))+theme_light()
 ```
-```{r}
+
+![](Project_files/figure-latex/unnamed-chunk-8-1.pdf)<!-- --> 
+
+```r
 ggplot(aes(x=accepted_samples[,2]), data = as.data.frame(accepted_samples))+
   geom_density(fill="blue",color="black")+
   labs(x="Gamma",y="Density",title=expression(paste("Marginal Posterior Distribution of ", gamma)))+theme_light()
 ```
 
+![](Project_files/figure-latex/unnamed-chunk-9-1.pdf)<!-- --> 
+
 Now we can compare these posterior distributions to the distributions obtained when we use the absolute error between the proportion of infected individuals on the final day of the observed data and the simulated data as the distance metric.
 
-```{r}
-accepted_samples2 <- ABC(1e7, 0.001, 2, x, 4, 2)
+
+```r
+accepted_samples2 <- ABC(1e7, 0.01, 2, x, 4, 2)
 accepted_samples2 <- accepted_samples2[!rowSums(accepted_samples2==0),]
 ```
 
-```{r}
+
+```r
 ggplot(aes(x=accepted_samples2[,1]), data = as.data.frame(accepted_samples2))+
   geom_density(fill="blue",color="black")+
   labs(x="Beta",y="Frequency",title=expression(paste("Marginal Posterior Distribution of ", beta)))+theme_light()
 ```
 
-```{r}
+![](Project_files/figure-latex/unnamed-chunk-11-1.pdf)<!-- --> 
+
+
+```r
 ggplot(aes(x=accepted_samples2[,2]), data = as.data.frame(accepted_samples2))+
   geom_density(fill="blue",color="black")+
   labs(x="Gamma",y="Density",title=expression(paste("Marginal Posterior Distribution of ", gamma)))+theme_light()
 ```
 
+![](Project_files/figure-latex/unnamed-chunk-12-1.pdf)<!-- --> 
+
 ## Acceptance Rates
 
 We can plot the acceptance rates for the two distance metrics as a function of the tolerance value.
 
-```{r}
-eps <- seq(0.4, 1, 0.01)
+
+```r
+eps <- seq(0.1, 3, 0.1)
 acceptance_rates <- numeric(length(eps))
 for (i in 1:length(eps)) {
   accepted_samples <- ABC(1e7, eps[i], 2, x, 4, 1)
@@ -277,7 +338,8 @@ for (i in 1:length(eps)) {
 }
 ```
 
-```{r}
+
+```r
 eps2 <- seq(0, 0.1, 0.005)
 acceptance_rates2 <- numeric(length(eps2))
 for (i in 1:length(eps2)) {
@@ -286,60 +348,17 @@ for (i in 1:length(eps2)) {
 }
 ```
 
-```{r}
+
+```r
 # plot the acceptance rates on two adjacent plots
 par(mfrow=c(1,2))
 plot(eps, acceptance_rates, type="l", xlab="Tolerance", ylab="Acceptance Rate", main="Mean Squared Error")
 plot(eps2, acceptance_rates2, type="l", xlab="Tolerance", ylab="Acceptance Rate", main="Absolute Error")
 ```
 
-We see that there is a sharp transition in the acceptance rate in the mean squared error plot. Below we plot the marginal posterior distribution of $\beta$ and $\gamma$ at a tolerance before and after the transition.
+![](Project_files/figure-latex/unnamed-chunk-15-1.pdf)<!-- --> 
 
-```{r}
-accepted_samples_before <- ABC(1e7, 0.55, 2, x, 4, 1)
-accepted_samples_before <- accepted_samples_before[!rowSums(accepted_samples_before==0),]
-accepted_samples_after <- ABC(1e7, 0.6, 2, x, 4, 1)
-accepted_samples_after <- accepted_samples_after[!rowSums(accepted_samples_after==0),]
-```
 
-```{r}
-# plot the marginal posteriors on the same plot
-par(mfrow=c(1,2))
-plot(density(accepted_samples_before[,1]), col="red", main="Before Transition", xlab="Beta")
-plot(density(accepted_samples_after[,1]), col="blue", main="After Transition", xlab="Beta")
-```
-
-```{r}
-# plot the marginal posteriors on the same plot
-par(mfrow=c(1,2))
-plot(density(accepted_samples_before[,2]), col="red", main="Before Transition", xlab="Gamma")
-plot(density(accepted_samples_after[,2]), col="blue", main="After Transition", xlab="Gamma")
-```
-
-Now we can find the optimal value for each parameter by finding the value that maximises the density in the marginal posterior distribution of $\beta$ and $\gamma$.
-
-```{r}
-optimal_beta <- density(accepted_samples_before)$x[which.max(density(accepted_samples_before[,1])$y)]
-optimal_gamma <- density(accepted_samples_before)$x[which.max(density(accepted_samples_before[,2])$y)]
-cat("Optimal value for beta: ", optimal_beta, "\n",
-    "Optimal tolerance for gamma: ", optimal_gamma, "\n")
-```
-
-We will now simulate the SIR model using the optimal values of $\beta$ and $\gamma$.
-
-```{r}
-s <- numeric(20)
-i <- numeric(20)
-r <- numeric(20)
-
-I <- SIR(s, i, r, 1 - 1/763, 1/763, 0, optimal_beta, optimal_gamma)
-plot(x, type="l", xlab="Day", ylab="Proportion of Infected", main="Observed Data")
-lines(I, col="blue")
-```
-
-```{r}
-plot(I, col="blue")
-```
 ## References
 
 [1] J.-M. Marin, P. Pudlo, C. P. Robert, and R. J. Ryder, "Approximate bayesian computational methods" Stat Comput, vol. 22, pp. 1167--1180, Nov. 2012.
