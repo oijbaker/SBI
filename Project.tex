@@ -109,12 +109,10 @@
 
 \begin{document}
 
-\hypertarget{sm2-sc2-project}{%
-\subsubsection{SM2 / SC2 Project}\label{sm2-sc2-project}}
+\subsubsection{SM2 / SC2 Project}\label{sm2-sc2-project}
 
-\hypertarget{using-abcsir-to-model-the-spread-of-influenza-in-a-boarding-school}{%
 \section{Using ABC/SIR to Model the Spread of Influenza in a Boarding
-School}\label{using-abcsir-to-model-the-spread-of-influenza-in-a-boarding-school}}
+School}\label{using-abcsir-to-model-the-spread-of-influenza-in-a-boarding-school}
 
 For this group project, we investigated the problem of intractable
 likelihoods using Approximate Bayesian Computation. Such simulation
@@ -125,8 +123,7 @@ in epidemiology models, where we are unable to use methods such as
 maximum likelihood estimation to estimate the infection parameters given
 data.
 
-\hypertarget{data-set}{%
-\subsection{Data-set}\label{data-set}}
+\subsection{Data-set}\label{data-set}
 
 We begin by importing the dataset we chose for this project: the
 \texttt{bsflu} dataset from the package \texttt{pomp}. This dataset
@@ -136,6 +133,8 @@ records a 1978 Influenza outbreak in a boy's boarding school.
 \begin{Highlighting}[]
 \FunctionTok{library}\NormalTok{(pomp)}
 \FunctionTok{library}\NormalTok{(Rcpp)}
+\FunctionTok{library}\NormalTok{(sitmo)}
+\FunctionTok{library}\NormalTok{(ggplot2)}
 \FunctionTok{data}\NormalTok{(bsflu)}
 \end{Highlighting}
 \end{Shaded}
@@ -164,8 +163,26 @@ with the flu on a given day (i.e.~classes as `infected'). C contains the
 number of students who are \emph{convalescent} (i.e.~not infected but
 yet unable to return to class).
 
-\hypertarget{model}{%
-\subsection{Model}\label{model}}
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(tidyr)}
+\FunctionTok{library}\NormalTok{(ggplot2)}
+
+
+\NormalTok{bsflu }\SpecialCharTok{|\textgreater{}}
+    \FunctionTok{gather}\NormalTok{(variable,value,}\SpecialCharTok{{-}}\NormalTok{date,}\SpecialCharTok{{-}}\NormalTok{day) }\SpecialCharTok{|\textgreater{}}
+    \FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{date,}\AttributeTok{y=}\NormalTok{value,}\AttributeTok{color=}\NormalTok{variable))}\SpecialCharTok{+}
+    \FunctionTok{geom\_line}\NormalTok{()}\SpecialCharTok{+}
+    \FunctionTok{geom\_point}\NormalTok{()}\SpecialCharTok{+}
+    \FunctionTok{labs}\NormalTok{(}\AttributeTok{y=}\StringTok{"Number of Boys"}\NormalTok{,}\AttributeTok{x=}\StringTok{"Date"}\NormalTok{,}\AttributeTok{title=}\StringTok{"Boarding school infuenza outbreak (22nd Jan {-} 4th Feb)"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{scale\_x\_date}\NormalTok{(}\AttributeTok{date\_minor\_breaks =} \StringTok{"1 day"}\NormalTok{,}\AttributeTok{date\_labels =} \StringTok{"\%b \%d"}\NormalTok{)}\SpecialCharTok{+}
+    \FunctionTok{theme\_light}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-3-1.pdf}
+
+\subsection{Model}\label{model}
 
 In order to model disease data, we will use the well-studied SIR model.
 This model models the number of people in three states: Susceptible,
@@ -220,8 +237,59 @@ the C++ code from R.
 \end{Highlighting}
 \end{Shaded}
 
-\hypertarget{abc-definition}{%
-\subsection{ABC Definition}\label{abc-definition}}
+Below is a demonstration of the SIR model above, with \(\beta = 0.8\)
+and \(\gamma = 0.2\).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{s }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{20}\NormalTok{)}
+\NormalTok{i }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{20}\NormalTok{)}
+\NormalTok{r }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{20}\NormalTok{)}
+
+\NormalTok{sir }\OtherTok{\textless{}{-}} \FunctionTok{SIR}\NormalTok{(s, i, r, }\DecValTok{1} \SpecialCharTok{{-}} \DecValTok{1}\SpecialCharTok{/}\DecValTok{763}\NormalTok{, }\DecValTok{1}\SpecialCharTok{/}\DecValTok{763}\NormalTok{, }\DecValTok{0}\NormalTok{, }\FloatTok{0.8}\NormalTok{, }\FloatTok{0.2}\NormalTok{)}
+
+\CommentTok{\# convert SIR to a data frame}
+\NormalTok{sir }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}\AttributeTok{day =} \DecValTok{1}\SpecialCharTok{:}\DecValTok{20}\NormalTok{, }\AttributeTok{sir =}\NormalTok{ sir)}
+\FunctionTok{print}\NormalTok{(sir)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##    day         sir
+## 1    1 0.001310616
+## 2    2 0.002095611
+## 3    3 0.003349026
+## 4    4 0.005347643
+## 5    5 0.008527571
+## 6    6 0.013569424
+## 7    7 0.021518985
+## 8    8 0.033942171
+## 9    9 0.053083221
+## 10  10 0.081917372
+## 11  11 0.123828512
+## 12  12 0.181407697
+## 13  13 0.253810306
+## 14  14 0.333041786
+## 15  15 0.402372183
+## 16  16 0.442376936
+## 17  17 0.443721280
+## 18  18 0.413185769
+## 19  19 0.365510796
+## 20  20 0.313113502
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{day,}\AttributeTok{y=}\NormalTok{sir), }\AttributeTok{data =}\NormalTok{ sir)}\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\AttributeTok{color=}\StringTok{"red"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{color=}\StringTok{"red"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{y=}\StringTok{"Proportion of Infected"}\NormalTok{,}\AttributeTok{x=}\StringTok{"Day"}\NormalTok{,}\AttributeTok{title=}\StringTok{"SIR Model with beta=0.8, gamma=0.2"}\NormalTok{)}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-5-1.pdf}
+
+\subsection{ABC Definition}\label{abc-definition}
 
 Consider first the general case of intractable likelihood: having a
 model \(f(.|\theta)\) with intractable likelihood \(l(\theta|.)\) and
@@ -260,20 +328,238 @@ This can be anything from the mean \(\bar{y}\) and empirical quantiles,
 to more complex statistics such as kernels or auxiliary parameters.
 These methods will be looked at near the tail end of our investigation.
 
-\hypertarget{abc-implementation}{%
-\subsection{ABC Implementation}\label{abc-implementation}}
+\subsection{ABC Implementation}\label{abc-implementation}
 
 For the distance metric within ABC, we will need to compare the
 simulated data to the observed data. However as noted in the Data-set
 section, only the column B can be used. Hence we will compare the B
 column of the dataset to the number of infected individuals I in our SIR
-model.
+model. Similar to the approach of {[}2{]}, we will use the mean squared
+error between the proportions of infected individuals in the observed
+data and the simulated data as our distance metric, and compare it to
+the other distance metric used; the absolute error between the
+proportion of infected individuals on the final day of the observed data
+and the simulated data.
 
-\hypertarget{references}{%
-\subsection{References}\label{references}}
+The following code implements the ABC/SIR algorithm in C++.
 
-{[}1{]} J.\emph{-M. Marin, P. Pudlo, C. P. Robert, and R. J. Ryder,
-``Approximate bayesian computational methods,'' Stat Comput, vol.~22,
-pp.~1167--1180, Nov.~2012.}
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{sourceCpp}\NormalTok{(}\AttributeTok{code=}\StringTok{\textquotesingle{}}
+\StringTok{\#include \textless{}Rcpp.h\textgreater{}}
+\StringTok{\#include \textless{}RcppParallel.h\textgreater{}}
+\StringTok{\#include \textless{}omp.h\textgreater{}}
+\StringTok{\#include \textless{}sitmo.h\textgreater{}}
+\StringTok{\#include \textless{}cmath\textgreater{}}
+\StringTok{using namespace Rcpp;}
+
+\StringTok{// [[Rcpp::depends(RcppParallel)]]}
+\StringTok{// [[Rcpp::depends(sitmo)]]}
+\StringTok{// [[Rcpp::plugins(openmp)]]}
+
+\StringTok{// Function to simulate data from SIR model}
+
+\StringTok{// [[Rcpp::export]]}
+\StringTok{double unif\_sitmo(int seed) \{}
+\StringTok{  uint32\_t coreseed = static\_cast\textless{}uint32\_t\textgreater{}(seed);}
+\StringTok{  sitmo::prng eng(coreseed);}
+\StringTok{  double mx = sitmo::prng::max();}
+\StringTok{  double x = eng() / mx;}
+\StringTok{  return x;}
+\StringTok{\}}
+
+\StringTok{double calc\_dist\_serial(double* x\_sim, NumericVector x) \{}
+\StringTok{  double total;}
+\StringTok{  for (int i=0; i\textless{}20; i++) \{}
+\StringTok{    total += pow(x[i]{-}x\_sim[i], 2);}
+\StringTok{  \}}
+\StringTok{  return total;}
+\StringTok{\}}
+
+\StringTok{// [[Rcpp::export]]}
+\StringTok{NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int metric)}
+\StringTok{\{}
+\StringTok{  }
+\StringTok{  NumericMatrix accepted\_samples(n, p);}
+\StringTok{  int count = 0;}
+\StringTok{  double dist;}
+
+\StringTok{  \#pragma omp parallel num\_threads(ncores)}
+\StringTok{  \{}
+\StringTok{    double theta\_sim[2];}
+\StringTok{    \#pragma omp for}
+\StringTok{    for (int i=0; i\textless{}n; i++) \{}
+
+\StringTok{      \#pragma omp critical}
+\StringTok{      \{}
+\StringTok{      theta\_sim[0] = unif\_sitmo(i);}
+\StringTok{      theta\_sim[1] = unif\_sitmo(i+n);}
+\StringTok{      \}}
+\StringTok{      }
+\StringTok{      // NumericVector I = SIR(762.0/763.0, 1.0/763.0, 0.0, theta\_sim[1], theta\_sim[2]);}
+
+\StringTok{      double S[20];}
+\StringTok{      double I[20];}
+\StringTok{      double R[20];}
+
+\StringTok{      S[0] = 762.0/763.0;}
+\StringTok{      I[0] = 1.0/763.0;}
+\StringTok{      R[0] = 0.0;}
+
+\StringTok{      for (int t = 1; t \textless{} 20; t++) \{}
+\StringTok{        S[t] = S[t{-}1] {-} theta\_sim[0] * S[t{-}1] * I[t{-}1];}
+\StringTok{        I[t] = I[t{-}1] + theta\_sim[0] * S[t{-}1] * I[t{-}1] {-} theta\_sim[1] * I[t{-}1];}
+\StringTok{        R[t] = R[t{-}1] + theta\_sim[1] * I[t{-}1];}
+\StringTok{      \}}
+
+\StringTok{      \#pragma omp critical}
+\StringTok{      \{}
+\StringTok{      if (metric == 1) \{}
+\StringTok{        dist = calc\_dist\_serial(I, x);}
+\StringTok{      \} else if (metric == 2) \{}
+\StringTok{        dist = pow(I[19]{-}x[19], 2);}
+\StringTok{      \}}
+\StringTok{      if (dist \textless{} eps) \{}
+\StringTok{        accepted\_samples(i, 0) = theta\_sim[0];}
+\StringTok{        accepted\_samples(i, 1) = theta\_sim[1];}
+\StringTok{        count++;}
+\StringTok{      \}}
+\StringTok{      \}}
+\StringTok{    \}}
+\StringTok{  \}}
+\StringTok{  }
+\StringTok{  std::cout \textless{}\textless{} "Acceptance rate: " \textless{}\textless{} (double)count / n \textless{}\textless{} std::endl;}
+\StringTok{  return accepted\_samples;}
+\StringTok{  }
+\StringTok{\}}
+
+\StringTok{\textquotesingle{}}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+The function \texttt{ABC} takes in the number of samples \texttt{n}, the
+tolerance \texttt{eps}, the number of parameters \texttt{p}, the
+observed data \texttt{x}, and the number of cores to use
+\texttt{ncores}. It then returns a matrix of accepted samples. It is
+important to note that we should normalise the \texttt{x} vector before
+inputting it into the ABC function, as the SIR model uses proportions
+rather than raw numbers.
+
+As an example, we can run the ABC algorithm with \(10^7\) samples, a
+tolerance of 0.8, and 2 parameters, using the mean squared error as the
+distance metric.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{x }\OtherTok{\textless{}{-}}\NormalTok{ bsflu}\SpecialCharTok{$}\NormalTok{B}\SpecialCharTok{/}\DecValTok{763}
+\NormalTok{accepted\_samples }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e7}\NormalTok{, }\FloatTok{0.8}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+
+\CommentTok{\# remove zeros}
+\NormalTok{accepted\_samples }\OtherTok{\textless{}{-}}\NormalTok{ accepted\_samples[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(accepted\_samples}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),]}
+\end{Highlighting}
+\end{Shaded}
+
+We can then plot the marginal posterior distributions of the parameters
+\(\beta\) and \(\gamma\).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# plot the density histograms}
+\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples[,}\DecValTok{1}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"black"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Beta"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Frequency"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Marginal Posterior Distribution of "}\NormalTok{, beta)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-8-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples[,}\DecValTok{2}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"black"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Gamma"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Density"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Marginal Posterior Distribution of "}\NormalTok{, gamma)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-9-1.pdf}
+
+Now we can compare these posterior distributions to the distributions
+obtained when we use the absolute error between the proportion of
+infected individuals on the final day of the observed data and the
+simulated data as the distance metric.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{accepted\_samples2 }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e7}\NormalTok{, }\FloatTok{0.01}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{2}\NormalTok{)}
+\NormalTok{accepted\_samples2 }\OtherTok{\textless{}{-}}\NormalTok{ accepted\_samples2[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(accepted\_samples2}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples2[,}\DecValTok{1}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples2))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"black"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Beta"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Frequency"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Marginal Posterior Distribution of "}\NormalTok{, beta)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-11-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples2[,}\DecValTok{2}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples2))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"black"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Gamma"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Density"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Marginal Posterior Distribution of "}\NormalTok{, gamma)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-12-1.pdf}
+
+\subsection{Acceptance Rates}\label{acceptance-rates}
+
+We can plot the acceptance rates for the two distance metrics as a
+function of the tolerance value.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{eps }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\FloatTok{0.1}\NormalTok{, }\DecValTok{3}\NormalTok{, }\FloatTok{0.1}\NormalTok{)}
+\NormalTok{acceptance\_rates }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\FunctionTok{length}\NormalTok{(eps))}
+\ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \DecValTok{1}\SpecialCharTok{:}\FunctionTok{length}\NormalTok{(eps)) \{}
+\NormalTok{  accepted\_samples }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e7}\NormalTok{, eps[i], }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+\NormalTok{  acceptance\_rates[i] }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(accepted\_samples[,}\DecValTok{1}\NormalTok{] }\SpecialCharTok{!=} \DecValTok{0}\NormalTok{) }\SpecialCharTok{/} \FunctionTok{nrow}\NormalTok{(accepted\_samples)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{eps2 }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\FloatTok{0.1}\NormalTok{, }\FloatTok{0.005}\NormalTok{)}
+\NormalTok{acceptance\_rates2 }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\FunctionTok{length}\NormalTok{(eps2))}
+\ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \DecValTok{1}\SpecialCharTok{:}\FunctionTok{length}\NormalTok{(eps2)) \{}
+\NormalTok{  accepted\_samples2 }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e7}\NormalTok{, eps2[i], }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{2}\NormalTok{)}
+\NormalTok{    acceptance\_rates2[i] }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(accepted\_samples2[,}\DecValTok{1}\NormalTok{] }\SpecialCharTok{!=} \DecValTok{0}\NormalTok{) }\SpecialCharTok{/} \FunctionTok{nrow}\NormalTok{(accepted\_samples)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# plot the acceptance rates on two adjacent plots}
+\FunctionTok{par}\NormalTok{(}\AttributeTok{mfrow=}\FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{2}\NormalTok{))}
+\FunctionTok{plot}\NormalTok{(eps, acceptance\_rates, }\AttributeTok{type=}\StringTok{"l"}\NormalTok{, }\AttributeTok{xlab=}\StringTok{"Tolerance"}\NormalTok{, }\AttributeTok{ylab=}\StringTok{"Acceptance Rate"}\NormalTok{, }\AttributeTok{main=}\StringTok{"Mean Squared Error"}\NormalTok{)}
+\FunctionTok{plot}\NormalTok{(eps2, acceptance\_rates2, }\AttributeTok{type=}\StringTok{"l"}\NormalTok{, }\AttributeTok{xlab=}\StringTok{"Tolerance"}\NormalTok{, }\AttributeTok{ylab=}\StringTok{"Acceptance Rate"}\NormalTok{, }\AttributeTok{main=}\StringTok{"Absolute Error"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-15-1.pdf}
+
+\subsection{References}\label{references}
+
+{[}1{]} J.-M. Marin, P. Pudlo, C. P. Robert, and R. J. Ryder,
+``Approximate bayesian computational methods'' Stat Comput, vol.~22,
+pp.~1167--1180, Nov.~2012.
+
+{[}2{]} A. Minter, and R. Retkute, ``Approximate Bayesian Computation
+for infectious disease modelling''. Epidemics, vol.~29, p.100368.
 
 \end{document}
