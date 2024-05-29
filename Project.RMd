@@ -45,7 +45,6 @@ bsflu |>
     theme_light()
 ```
 
-
 ## Model
 
 In order to model disease data, we will use the well-studied SIR model. This model models the number of people in three states: Susceptible, Infected, and Recovered. The model is defined by the following system of differential equations: $$
@@ -150,16 +149,49 @@ double unif_sitmo(int seed) {
   return x;
 }
 
+double max_double(double* x){
+
+  double m = 0;
+  for (int i=0; i<20; i++) {
+    if(x[i] > m){
+      m = x[i];
+    }
+  }
+  return m;
+}
+
 double calc_dist_serial(double* x_sim, NumericVector x) {
   double total;
   for (int i=0; i<20; i++) {
-    total += pow(x[i]-x_sim[i], 2);
+    total += pow(x[i]-x_sim[i],2);
   }
   return total;
 }
 
+double mean_std_dist(double* x_sim, NumericVector x, NumericVector w) {
+  double mean;
+  double sd;
+  double s;
+  for (int i=0;i < 20; i++){
+    s += x_sim[i];
+  }
+  for (int i=0;i < 20; i++){
+    mean += (i+1)*x_sim[i]/s;
+  }
+  for (int i=0;i < 20; i++){
+    sd += pow(i+1-mean,2)*x_sim[i]/s;
+  }
+
+  sd = sqrt(sd);
+  
+  double total = w[0]*pow(mean-13.14,2)/pow(13.14,2)+w[1]*pow(sd-2.19,2)/pow(2.19,2)+w[2]*pow(max_double(x_sim)-max(x),2)/(pow(max(x),2));
+  
+  return total;
+
+}
+
 // [[Rcpp::export]]
-NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int metric)
+NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int metric, NumericVector w)
 {
   
   NumericMatrix accepted_samples(n, p);
@@ -174,7 +206,7 @@ NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int met
 
       #pragma omp critical
       {
-      theta_sim[0] = unif_sitmo(i);
+      theta_sim[0] = 3*unif_sitmo(i);
       theta_sim[1] = unif_sitmo(i+n);
       }
       
@@ -200,6 +232,8 @@ NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int met
         dist = calc_dist_serial(I, x);
       } else if (metric == 2) {
         dist = pow(I[19]-x[19], 2);
+      } else if (metric == 3) {
+        dist = mean_std_dist(I, x, w);
       }
       if (dist < eps) {
         accepted_samples(i, 0) = theta_sim[0];
@@ -220,12 +254,14 @@ NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int met
 
 The function `ABC` takes in the number of samples `n`, the tolerance `eps`, the number of parameters `p`, the observed data `x`, and the number of cores to use `ncores`. It then returns a matrix of accepted samples. It is important to note that we should normalise the `x` vector before inputting it into the ABC function, as the SIR model uses proportions rather than raw numbers.
 
-As an example, we can run the ABC algorithm with $10^7$ samples, a tolerance of 0.8, and 2 parameters, using the mean squared error as the distance metric.
+## Comparison of Metrics
+
+As an example, we can run the ABC algorithm with $10^7$ samples, a tolerance of 0.8, and 2 parameters, using the mean squared error initially as the distance metric.
 
 ```{r}
 x <- c(rep(1/763,5), 2/763, bsflu$B/763)
 length(x)
-accepted_samples <- ABC(1e7, 0.55, 2, x, 4, 1)
+accepted_samples <- ABC(1e6, .8, 2, x, 4, 1,NA)
 
 # remove zeros
 accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
@@ -234,112 +270,250 @@ accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
 We can then plot the marginal posterior distributions of the parameters $\beta$ and $\gamma$.
 
 ```{r}
+library(cowplot)
 # plot the density histograms
-ggplot(aes(x=accepted_samples[,1]), data = as.data.frame(accepted_samples))+
-  geom_density(fill="blue",color="black")+
+example_beta_plot<-ggplot(aes(x=accepted_samples[,1]), data = as.data.frame(accepted_samples))+
+  geom_density(fill="lightblue",color="blue")+
+  xlim(c(0,3))+
   labs(x="Beta",y="Frequency",title=expression(paste("Marginal Posterior Distribution of ", beta)))+theme_light()
-```
-```{r}
-ggplot(aes(x=accepted_samples[,2]), data = as.data.frame(accepted_samples))+
-  geom_density(fill="blue",color="black")+
+
+example_gamma_plot<-ggplot(aes(x=accepted_samples[,2]), data = as.data.frame(accepted_samples))+
+  geom_density(fill="pink",color="red")+
+  xlim(c(0,1))+
   labs(x="Gamma",y="Density",title=expression(paste("Marginal Posterior Distribution of ", gamma)))+theme_light()
+
+plot_grid(example_beta_plot, example_gamma_plot)
 ```
 
 Now we can compare these posterior distributions to the distributions obtained when we use the absolute error between the proportion of infected individuals on the final day of the observed data and the simulated data as the distance metric.
 
 ```{r}
-accepted_samples2 <- ABC(1e7, 0.001, 2, x, 4, 2)
+accepted_samples2 <- ABC(1e6, 0.001, 2, x, 4, 2,NA)
 accepted_samples2 <- accepted_samples2[!rowSums(accepted_samples2==0),]
 ```
 
 ```{r}
-ggplot(aes(x=accepted_samples2[,1]), data = as.data.frame(accepted_samples2))+
-  geom_density(fill="blue",color="black")+
+abs_beta_plot<-ggplot(aes(x=accepted_samples2[,1]), data = as.data.frame(accepted_samples2))+
+  geom_density(fill="lightblue",color="blue")+
   labs(x="Beta",y="Frequency",title=expression(paste("Marginal Posterior Distribution of ", beta)))+theme_light()
-```
 
-```{r}
-ggplot(aes(x=accepted_samples2[,2]), data = as.data.frame(accepted_samples2))+
-  geom_density(fill="blue",color="black")+
+abs_gamma_plot<-ggplot(aes(x=accepted_samples2[,2]), data = as.data.frame(accepted_samples2))+
+  geom_density(fill="pink",color="red")+
   labs(x="Gamma",y="Density",title=expression(paste("Marginal Posterior Distribution of ", gamma)))+theme_light()
+
+plot_grid(abs_beta_plot,abs_gamma_plot)
 ```
 
 ## Acceptance Rates
 
 We can plot the acceptance rates for the two distance metrics as a function of the tolerance value.
 
-```{r}
-eps <- seq(0.4, 1, 0.01)
+```{r output=FALSE}
+eps <- seq(0.4, 1, length.out=20)
 acceptance_rates <- numeric(length(eps))
 for (i in 1:length(eps)) {
-  accepted_samples <- ABC(1e7, eps[i], 2, x, 4, 1)
+  accepted_samples <- ABC(1e6, eps[i], 2, x, 4, 1,NA)
   acceptance_rates[i] <- sum(accepted_samples[,1] != 0) / nrow(accepted_samples)
 }
 ```
 
 ```{r}
-eps2 <- seq(0, 0.1, 0.005)
+eps2 <- seq(0, 0.1, length.out=20)
 acceptance_rates2 <- numeric(length(eps2))
 for (i in 1:length(eps2)) {
-  accepted_samples2 <- ABC(1e7, eps2[i], 2, x, 4, 2)
+  accepted_samples2 <- ABC(1e6, eps2[i], 2, x, 4, 2,NA)
     acceptance_rates2[i] <- sum(accepted_samples2[,1] != 0) / nrow(accepted_samples)
 }
 ```
 
 ```{r}
-# plot the acceptance rates on two adjacent plots
-par(mfrow=c(1,2))
-plot(eps, acceptance_rates, type="l", xlab="Tolerance", ylab="Acceptance Rate", main="Mean Squared Error")
-plot(eps2, acceptance_rates2, type="l", xlab="Tolerance", ylab="Acceptance Rate", main="Absolute Error")
+msedata<-data.frame(Tolerance=eps,Acceptance_Rate=acceptance_rates)
+absdata<-data.frame(Tolerance=eps2, Acceptance_Rate=acceptance_rates2)
+mse_plot<-ggplot(msedata,aes(x=Tolerance,y=Acceptance_Rate))+
+  geom_line(col='darkgreen') + geom_point(col='darkgreen') + theme_light() + ggtitle("Mean Squred Error")
+abs_plot<-ggplot(absdata,aes(x=Tolerance,y=Acceptance_Rate))+
+  geom_line(col='purple') + geom_point(col='purple') + theme_light() + ggtitle("Absolute Value")
+plot_grid(mse_plot,abs_plot)
 ```
 
 We see that there is a sharp transition in the acceptance rate in the mean squared error plot. Below we plot the marginal posterior distribution of $\beta$ and $\gamma$ at a tolerance before and after the transition.
 
 ```{r}
-accepted_samples_before <- ABC(1e7, 0.55, 2, x, 4, 1)
+accepted_samples_before <- ABC(1e6, 0.55, 2, x, 4, 1,NA)
 accepted_samples_before <- accepted_samples_before[!rowSums(accepted_samples_before==0),]
-accepted_samples_after <- ABC(1e7, 0.6, 2, x, 4, 1)
+accepted_samples_after <- ABC(1e6, 0.6, 2, x, 4, 1,NA)
 accepted_samples_after <- accepted_samples_after[!rowSums(accepted_samples_after==0),]
 ```
 
 ```{r}
-# plot the marginal posteriors on the same plot
-par(mfrow=c(1,2))
-plot(density(accepted_samples_before[,1]), col="red", main="Before Transition", xlab="Beta")
-plot(density(accepted_samples_after[,1]), col="blue", main="After Transition", xlab="Beta")
+before_beta_plot<-ggplot(aes(x=accepted_samples_before[,1]), data = as.data.frame(accepted_samples_before))+
+  geom_density(fill="lightblue",color="blue")+
+  xlim(c(0,3))+
+  labs(x="Beta",y="Frequency",title=expression(paste("Distribution of ", beta,"  (Before)")))+theme_light()
+
+before_gamma_plot<-ggplot(aes(x=accepted_samples_before[,2]), data = as.data.frame(accepted_samples_before))+
+  geom_density(fill="pink",color="red")+
+  xlim(c(0,1))+
+  labs(x="Gamma",y="Density",title=expression(paste("Distribution of ", gamma," (Before)")))+theme_light()
+
+after_beta_plot<-ggplot(aes(x=accepted_samples_after[,1]), data = as.data.frame(accepted_samples_after))+
+  geom_density(fill="lightblue",color="blue")+
+  xlim(c(0,3))+
+  labs(x="Beta",y="Frequency",title=expression(paste("Distribution of ", beta, " (After)")))+theme_light()
+
+after_gamma_plot<-ggplot(aes(x=accepted_samples_after[,2]), data = as.data.frame(accepted_samples_after))+
+  geom_density(fill="pink",color="red")+
+  xlim(c(0,1))+
+  labs(x="Gamma",y="Density",title=expression(paste("Distribution of ", gamma, " (After)")))+theme_light()
+
+plot_grid(before_beta_plot,after_beta_plot,before_gamma_plot,after_gamma_plot,nrow=2,ncol=2)
 ```
+
+Indeed, as we decrease the value of $\epsilon$, the ABC-estimated posterior distribution of $\beta$ and $\gamma$ diverges further and further from the uniform priors $U[0,3]$, $U[0,1]$, and converges towards a distribution centered around the MAP (maximum a priori) estimate.
+
+We can see this in the plot below, which begins with a tolerance value of 0.4, producing a wider plot, and with each decrease in $\epsilon$, more and more mass is shifted towards the 'true' value. Whilst not included here, the same is true for $\gamma$ also.
 
 ```{r}
-# plot the marginal posteriors on the same plot
-par(mfrow=c(1,2))
-plot(density(accepted_samples_before[,2]), col="red", main="Before Transition", xlab="Gamma")
-plot(density(accepted_samples_after[,2]), col="blue", main="After Transition", xlab="Gamma")
+epsilons <- c(0.5,0.4,0.3,0.2)
+datas <- list(c(),c(),c(),c())
+for (i in 1:4){
+  sims <- ABC(1e6, epsilons[i], 2, x, 4, 1,NA)
+  datas[[i]] <- sims[!rowSums(sims==0),][,1]
+}
+
+ggplot(aes(x=datas[[1]]),data=as.data.frame(datas[[1]]))+
+  geom_density(fill='blue',alpha=.2)+
+  geom_density(data=as.data.frame(datas[[2]]),aes(x=datas[[2]]),fill='blue',alpha=.2)+
+  geom_density(data=as.data.frame(datas[[3]]),aes(x=datas[[3]]),fill='blue',alpha=.2)+
+  geom_density(data=as.data.frame(datas[[4]]),aes(x=datas[[4]]),fill='blue',alpha=.2)+
+  xlim(c(0,3))+
+  labs(x="Beta",y="Frequency",title=expression(paste("Distribution of ", beta,"  as  ", epsilon, " approaches 0.1")))+theme_light()
+
 ```
 
-Now we can find the optimal value for each parameter by finding the value that maximises the density in the marginal posterior distribution of $\beta$ and $\gamma$.
+## Parameter Estimates
+
+We will now simulate the SIR model using the optimal values of $\beta$ and $\gamma$. To best gain these optimal point estimates from our posterior distributions produced by ABC, we use a method of kernel density estimation.
+
+Below is a function which calculates these estimates for $\hat{\beta}$ and $\hat{\gamma}$, then is able to plot the associated heatmap used to find these posterior maximisers, as well as the fit to the observed data produced when inputting these estimates into the SIR simulator.
 
 ```{r}
-optimal_beta <- density(accepted_samples_before)$x[which.max(density(accepted_samples_before[,1])$y)]
-optimal_gamma <- density(accepted_samples_before)$x[which.max(density(accepted_samples_before[,2])$y)]
-cat("Optimal value for beta: ", optimal_beta, "\n",
-    "Optimal tolerance for gamma: ", optimal_gamma, "\n")
+library(MASS)
+library(ks)
+
+Optimal_Plot<-function(sims,plot.heat){
+  
+  colnames(sims) <- c("beta", "gamma")
+  
+  kde_result <- kde2d(sims[,1], sims[,2], n=50)
+  
+  kde_df <- data.frame(
+  x = rep(kde_result$x, each = length(kde_result$y)),
+  y = rep(kde_result$y, times = length(kde_result$x)),
+  z = as.vector(kde_result$z)
+  )
+  
+  heat_plot <- ggplot(kde_df, aes(x = x, y = y, z = z)) +
+  geom_contour_filled() +
+  labs(title = "2D KDE Filled Contour Plot",
+       x = "X-axis",
+       y = "Y-axis",
+       fill = "Density") +
+  theme_minimal()
+  
+  # Extract KDE results
+  x <- kde_result$x
+  y <- kde_result$y
+  z <- kde_result$z
+  
+  # Find the indices of the maximum density value
+  max_density_index <- which(z == max(z), arr.ind = TRUE)
+  
+  # Get the corresponding x and y values for the maximum density
+  max_x <- x[max_density_index[1]]
+  max_y <- y[max_density_index[2]]
+  
+  I <- SIR(numeric(20), numeric(20), numeric(20), 1 - 1/763, 1/763, 0, max_x, max_y)
+  
+  obs_data <- c(rep(1/763,5), 2/763, bsflu$B/763)
+  
+  fit_plot <- ggplot(data=data.frame(z=c(seq(1,20),seq(1,20)),y=c(obs_data,I),Data=c(rep("Observed",20  ),rep("Simulation",20))),aes(x=z,y=y,col=Data)) +
+    geom_point() + geom_line() + xlab("Day") + ylab("Proportion of Infected") +     ggtitle("ABC Estimated Fit vs. Observed Data")
+  
+  if(plot.heat){
+    
+    plot_grid(heat_plot,fit_plot)
+    
+  }
+  else{
+    
+    return(fit_plot)
+    
+  }
+}
 ```
 
-We will now simulate the SIR model using the optimal values of $\beta$ and $\gamma$.
+As an example therefore, we can use the mean squared error distance metric, along with a very small tolerance value of 0.01 to produce this fit to the data.
 
 ```{r}
-s <- numeric(20)
-i <- numeric(20)
-r <- numeric(20)
+accepted_samples <- ABC(1e6, .1, 2, x, 4, 1,NA)
+accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
 
-I <- SIR(s, i, r, 1 - 1/763, 1/763, 0, optimal_beta, optimal_gamma)
-plot(x, type="l", xlab="Day", ylab="Proportion of Infected", main="Observed Data")
-lines(I, col="blue")
+
+Optimal_Plot(accepted_samples,TRUE)
 ```
+
+By observing the contour plot, we can see that the optimal parameters using this method is about $\hat{\gamma} = 0.45$, and $1.2 < \hat{\beta} < 1.3$. Then by plugging these into the SIR simulator, we get a simulation that matches the observed data well. However it is worth noting that to achieve such a good fit required an incredibly low acceptance rate: only 0.86%.
+
+## Extension: Summary Statistics
+
+One other distance metric we could have used was that of looking at the difference between a handful of *summary statistics* of the data, rather than the raw data itself. This reduces the dimensionality of the problem and can reduce the amount of simulations needed for a good fit.
+
+The example we use here looks at the empirical mean and variance of the distribution, as well as the 'peak' of the distribution. I.e. for observed data points $(x_i,y_i)$ where $x_i$ is normalised to be a probability,
+
+$$
+\mu = \sum_{i=1}^{N}x_i y_i
+$$
+
+$$
+\sigma^2 = \sum_{i=1}^N y_i(\mu-x_i)^2
+$$
+
+Then by observing $d_{obs} = (x_{obs},y_{obs})$ and simulating $d_{sim} = (x_{sim},y_{sim})$, we define our distance metric to be:
+
+$$
+D(d_{obs},d_{sim}) = w_1\frac{(\mu_{obs}-\mu_{sim})^2}{\mu_{obs}^2} + w_2\frac{(\sigma_{obs}-\sigma_{sim})^2}{\sigma_{obs}^2} + w_3\frac{(max(d_{obs})-max(d_{sim}))^2}{max(d_{obs})^2}
+$$
+
+Where $w_1, w_2, w_3$ are the weights assigned to each distance measure.
+
+Then by using a different set of weights, we can assign more importance to the matching of mean, variance, and whether the peaks of the distributions coincide. For example, by prioritizing each we obtain the plots below, where the mean weighted one matches the mean perfectly, but at the expense of standard deviation. The estimate weighted by peak however matches the peak and shape of distribution correctly, but with the wrong mean.
 
 ```{r}
-plot(I, col="blue")
+weights <- list(c(2,.2,.2),c(.2,1,.2),c(.2,.2,2))
+plots <- list(before_gamma_plot,before_beta_plot,before_beta_plot)
+
+for (i in 1:3){
+  
+  accepted_samples <- ABC(1e6, .4, 2, x, 4, 3, weights[[i]])
+  accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
+  plots[[i]] <- Optimal_Plot(accepted_samples,FALSE)
+  
+}
+
+plot_grid(plots[[1]],plots[[2]],plots[[3]])
+
+
 ```
+
+Then by choosing an appropriate set of weights and a low value of $\epsilon$, we can achieve a fit to the observed data of similar quality to that which we got using the mean squared error of raw data. The difference here is the acceptance probability, while low, is much higher than that case: 4% as opposed to 0.8%. Hence requiring less computational power due to less simulations required.
+
+```{r}
+accepted_samples <- ABC(1e6, .05, 2, x, 4, 3, c(1,.1,.5))
+accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
+Optimal_Plot(accepted_samples,FALSE)
+```
+
 ## References
 
 [1] J.-M. Marin, P. Pudlo, C. P. Robert, and R. J. Ryder, "Approximate bayesian computational methods" Stat Comput, vol. 22, pp. 1167--1180, Nov. 2012.
