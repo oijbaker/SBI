@@ -254,13 +254,15 @@ NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int met
 
 The function `ABC` takes in the number of samples `n`, the tolerance `eps`, the number of parameters `p`, the observed data `x`, and the number of cores to use `ncores`. It then returns a matrix of accepted samples. It is important to note that we should normalise the `x` vector before inputting it into the ABC function, as the SIR model uses proportions rather than raw numbers.
 
+To make the code run faster, we use OpenMP to parallelise it. More specifically, we parallelise the 'for' loop in the ABC algorithm. This is fine as the iterations are independent, meaning that it does not matter what order they are implemented in (unlike a Metropolis-Hastings algorithm, for example, where each iteration depends on the result of the previous iteration). With parallelisation, it is necessary to ensure thread safety when handling multiple threads to prevent race conditions (when multiple threads access shared data concurrently without proper synchronisation, e.g. two threads trying to modify the same variable simultaneously), incorrect results or crashes. Since all the threads need to access the `accepted_samples` vector, and since R and Rcpp's API are not thread safe in general, we decided to put the acceptance step inside a critical section. The `count` and `dist` variables are also shared among the threads, so the parts of the code that update these variables are also put inside the critical section.
+
 ## Comparison of Metrics
 
 As an example, we can run the ABC algorithm with $10^7$ samples, a tolerance of 0.8, and 2 parameters, using the mean squared error initially as the distance metric.
 
 ```{r}
 x <- c(rep(1/763,5), 2/763, bsflu$B/763)
-accepted_samples <- ABC(1e6, .8, 2, x, 4, 1,NA)
+accepted_samples <- ABC(1e6, .8, 2, x, 4, 1, NA)
 
 # remove zeros
 accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
@@ -462,7 +464,7 @@ accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
 Optimal_Plot(accepted_samples,TRUE)
 ```
 
-By observing the contour plot, we can see that the optimal parameters using this method are approximately $\hat{\gamma} = 0.45$, and $1.2 < \hat{\beta} < 1.3$. Then by plugging these into the SIR simulator, we get a simulation that matches the observed data well. However it is worth noting that to achieve such a good fit required an incredibly low acceptance rate: only 0.86%.
+By observing the contour plot, we can see that the optimal parameters using this method are approximately $\hat{\gamma} = 0.45$, and $1.2 < \hat{\beta} < 1.3$. Then by plugging these into the SIR simulator, we get a simulation that matches the observed data well. However it is worth noting that to achieve such a good fit required an incredibly low acceptance rate: only 0.86%. This means that a high number of parameter samples are rejected, which is computationally costly.
 
 ## Extension: Summary Statistics
 
@@ -559,7 +561,7 @@ for (i in 1:n_samples) {
 
 ## Conclusion
 
-In conclusion, we have successfully implemented the ABC algorithm to estimate the parameters of the SIR model for an influenza outbreak in a boarding school. We have shown that the choice of distance metric and tolerance value can have a significant impact on the acceptance rate and the quality of the fit to the observed data. We have also shown that using summary statistics can reduce the dimensionality of the problem and improve the acceptance rate. Finally, we have demonstrated how to use kernel density estimation to estimate the optimal parameters of the SIR model and produce a range of simulations to fit the infection curve. In future work, we could test different priors for the parameters, and different simulaion-based inference techniques such as MCMC-ABC and SMC-ABC.
+In conclusion, we have successfully implemented the ABC algorithm to estimate the parameters of the SIR model for an influenza outbreak in a boarding school. We have shown that the choice of distance metric and tolerance value can have a significant impact on the acceptance rate and the quality of the fit to the observed data. We have also shown that using summary statistics can reduce the dimensionality of the problem and improve the acceptance rate. Finally, we have demonstrated how to use kernel density estimation to estimate the optimal parameters of the SIR model and produce a range of simulations to fit the infection curve. In future work, we could test different priors for the parameters, and different simulation-based inference techniques such as MCMC-ABC and SMC-ABC; these techniques are known to help to mitigate the problem of having a high rejection rate in the standard ABC algorithm, which we encountered in this project.
 
 ## References
 
