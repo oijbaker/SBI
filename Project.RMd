@@ -47,13 +47,13 @@ bsflu |>
 
 ## Model
 
-In order to model disease data, we will use the well-studied SIR model. This model models the number of people in three states: Susceptible, Infected, and Recovered. The model is defined by the following system of differential equations: $$
-\begin{align*}
+In order to model disease data, we will use the well-studied SIR model. This model models the number of people in three states: Susceptible, Infected, and Recovered. The model is defined by the following system of differential equations:
+
+$$ \begin{aligned}
 \frac{dS}{dt} &= -\beta S I \\
 \frac{dI}{dt} &= \beta S I - \gamma I \\
 \frac{dR}{dt} &= \gamma I
-\end{align*}
-$$
+\end{aligned} $$
 
 Where $S$ is the proportion of susceptible individuals, $I$ is the proportion of infected individuals, and $R$ is the proportion of recovered individuals. $\beta$ is the rate of infection, and $\gamma$ is the rate of recovery.
 
@@ -110,12 +110,12 @@ For ABC, we first repeatedly generate samples of $\theta$ from a prior distribut
 We then need to define some distance metric $D$ between the observed data $y$ and simulated data $\tilde{y}(\theta)$, only accepting the proposed $\theta$ if this distance falls below a defined tolerance value $\epsilon$.
 
 Even a simple rejection sampling algorithm such as this can be shown to produce samples $\{\theta_1,...,\theta_M\}$ ($M$ being the number of accepted values) that are samples from the joint distribution:$$
-\begin{align*}
+\begin{aligned}
     \pi_{\epsilon}(\theta,\tilde{y}|y) = \frac{\pi(\theta)f(\tilde{y}|\theta)\mathbb{I}(\tilde{y}\in A)}{\int_A\int_\Theta\pi(\theta)f(\tilde{y}|\theta) d \tilde{y} d \theta}
-\end{align*}$$ Where $\mathbb{I}$ is the indicator function, $\Theta$ is the support of $\theta$, and $A$ is the acceptance region defined by $D$, $y$, and $\epsilon$. Then given a suitable choice of tolerance value, this can produce an approximation to the posterior distribution of $\theta$ [1].$$
-\begin{align*}
+\end{aligned}$$ Where $\mathbb{I}$ is the indicator function, $\Theta$ is the support of $\theta$, and $A$ is the acceptance region defined by $D$, $y$, and $\epsilon$. Then given a suitable choice of tolerance value, this can produce an approximation to the posterior distribution of $\theta$ [1].$$
+\begin{aligned}
     \pi_{\epsilon}(\theta|y) = \int_A\pi_{\epsilon}(\theta,\tilde{y}|y)d\tilde{y} \approx \pi(\theta|y)
-\end{align*}$$
+\end{aligned}$$
 
 Clearly here much of the resulting estimate relies on our choice of tolerance parameter $\epsilon$ and distance metric $D$, both of which will be looked at later. Something else to consider is that in practice the distance metric is applied to a *summary statistic* of the data rather than the raw data, in order to reduce dimensionality. This can be anything from the mean $\bar{y}$ and empirical quantiles, to more complex statistics such as kernels or auxiliary parameters. These methods will be looked at near the tail end of our investigation.
 
