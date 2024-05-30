@@ -559,7 +559,7 @@ for (i in 1:n_samples) {
 
 ## Conclusion
 
-In conclusion, we have successfully implemented the ABC algorithm to estimate the parameters of the SIR model for an influenza outbreak in a boarding school. We have shown that the choice of distance metric and tolerance value can have a significant impact on the acceptance rate and the quality of the fit to the observed data. We have also shown that using summary statistics can reduce the dimensionality of the problem and improve the acceptance rate. Finally, we have demonstrated how to use kernel density estimation to estimate the optimal parameters of the SIR model and produce a range of simulations to fit the infection curve. In future work, we could test different priors for the parameters, and different simulaion-based inference techniques such as sequential Monte Carlo.
+In conclusion, we have successfully implemented the ABC algorithm to estimate the parameters of the SIR model for an influenza outbreak in a boarding school. We have shown that the choice of distance metric and tolerance value can have a significant impact on the acceptance rate and the quality of the fit to the observed data. We have also shown that using summary statistics can reduce the dimensionality of the problem and improve the acceptance rate. Finally, we have demonstrated how to use kernel density estimation to estimate the optimal parameters of the SIR model and produce a range of simulations to fit the infection curve. In future work, we could test different priors for the parameters, and different simulaion-based inference techniques such as MCMC-ABC and SMC-ABC.
 
 ## References
 
