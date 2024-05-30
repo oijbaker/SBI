@@ -260,7 +260,6 @@ As an example, we can run the ABC algorithm with $10^7$ samples, a tolerance of 
 
 ```{r}
 x <- c(rep(1/763,5), 2/763, bsflu$B/763)
-length(x)
 accepted_samples <- ABC(1e6, .8, 2, x, 4, 1,NA)
 
 # remove zeros
@@ -463,7 +462,7 @@ accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
 Optimal_Plot(accepted_samples,TRUE)
 ```
 
-By observing the contour plot, we can see that the optimal parameters using this method is about $\hat{\gamma} = 0.45$, and $1.2 < \hat{\beta} < 1.3$. Then by plugging these into the SIR simulator, we get a simulation that matches the observed data well. However it is worth noting that to achieve such a good fit required an incredibly low acceptance rate: only 0.86%.
+By observing the contour plot, we can see that the optimal parameters using this method are approximately $\hat{\gamma} = 0.45$, and $1.2 < \hat{\beta} < 1.3$. Then by plugging these into the SIR simulator, we get a simulation that matches the observed data well. However it is worth noting that to achieve such a good fit required an incredibly low acceptance rate: only 0.86%.
 
 ## Extension: Summary Statistics
 
@@ -506,13 +505,61 @@ plot_grid(plots[[1]],plots[[2]],plots[[3]])
 
 ```
 
-Then by choosing an appropriate set of weights and a low value of $\epsilon$, we can achieve a fit to the observed data of similar quality to that which we got using the mean squared error of raw data. The difference here is the acceptance probability, while low, is much higher than that case: 4% as opposed to 0.8%. Hence requiring less computational power due to less simulations required.
+Then by choosing an appropriate set of weights and a low value of $\epsilon$, we can achieve a fit to the observed data of similar quality to that which we got using the mean squared error of raw data. The difference here is the acceptance probability, while low, is much higher than that case: 4% as opposed to 0.8%. Hence requiring less computational power due to fewer simulations required.
 
 ```{r}
 accepted_samples <- ABC(1e6, .05, 2, x, 4, 3, c(1,.1,.5))
 accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
 Optimal_Plot(accepted_samples,FALSE)
 ```
+
+## Final Results
+
+Finally, we can sample randomly from the posterior distribution of $\beta$ and $\gamma$ to produce a range of simulations to fit the infection curve for each metric.
+
+```{r}
+# set up 3 horizontally adjacent plots
+par(mfrow=c(1,3))
+
+n_samples <- 100
+
+# mean squared metric
+plot(x, xlim=c(1,20), ylim=c(0,1), xlab="Day", ylab="Proportion of Infected", main="Mean Squared Error")
+accepted_samples <- ABC(1e6, .1, 2, x, 4, 1,NA)
+accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
+for (i in 1:n_samples) {
+  beta <- sample(accepted_samples[,1], 1)
+  gamma <- sample(accepted_samples[,2], 1)
+  I <- SIR(numeric(20), numeric(20), numeric(20), 1 - 1/763, 1/763, 0, beta, gamma)
+  lines(I, type = "l", col = "grey", xlab = "Day", ylab = "Proportion of Infected", main = "Mean Squared Error", lwd=0.5)
+}
+
+# absolute error metric
+plot(x, xlim=c(1,20), ylim=c(0,1), xlab="Day", ylab="Proportion of Infected", main="Absolute Error")
+accepted_samples <- ABC(1e6, .005, 2, x, 4, 2,NA)
+accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
+for (i in 1:n_samples) {
+  beta <- sample(accepted_samples[,1], 1)
+  gamma <- sample(accepted_samples[,2], 1)
+  I <- SIR(numeric(20), numeric(20), numeric(20), 1 - 1/763, 1/763, 0, beta, gamma)
+  lines(I, type = "l", col = "grey", xlab = "Day", ylab = "Proportion of Infected", main = "Mean Squared Error", lwd=0.5)
+}
+
+# summary statistics metric
+plot(x, xlim=c(1,20), ylim=c(0,1), xlab="Day", ylab="Proportion of Infected", main="Summary Statistics")
+accepted_samples <- ABC(1e6, .05, 2, x, 4, 3, c(1,.1,.5))
+accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
+for (i in 1:n_samples) {
+  beta <- sample(accepted_samples[,1], 1)
+  gamma <- sample(accepted_samples[,2], 1)
+  I <- SIR(numeric(20), numeric(20), numeric(20), 1 - 1/763, 1/763, 0, beta, gamma)
+  lines(I, type = "l", col = "grey", xlab = "Day", ylab = "Proportion of Infected", main = "Mean Squared Error", lwd=0.5)
+}
+```
+
+## Conclusion
+
+In conclusion, we have successfully implemented the ABC algorithm to estimate the parameters of the SIR model for an influenza outbreak in a boarding school. We have shown that the choice of distance metric and tolerance value can have a significant impact on the acceptance rate and the quality of the fit to the observed data. We have also shown that using summary statistics can reduce the dimensionality of the problem and improve the acceptance rate. Finally, we have demonstrated how to use kernel density estimation to estimate the optimal parameters of the SIR model and produce a range of simulations to fit the infection curve. In future work, we could test different priors for the parameters, and different simulaion-based inference techniques such as MCMC-ABC and SMC-ABC.
 
 ## References
 

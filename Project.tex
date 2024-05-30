@@ -368,16 +368,49 @@ The following code implements the ABC/SIR algorithm in C++.
 \StringTok{  return x;}
 \StringTok{\}}
 
+\StringTok{double max\_double(double* x)\{}
+
+\StringTok{  double m = 0;}
+\StringTok{  for (int i=0; i\textless{}20; i++) \{}
+\StringTok{    if(x[i] \textgreater{} m)\{}
+\StringTok{      m = x[i];}
+\StringTok{    \}}
+\StringTok{  \}}
+\StringTok{  return m;}
+\StringTok{\}}
+
 \StringTok{double calc\_dist\_serial(double* x\_sim, NumericVector x) \{}
 \StringTok{  double total;}
 \StringTok{  for (int i=0; i\textless{}20; i++) \{}
-\StringTok{    total += pow(x[i]{-}x\_sim[i], 2);}
+\StringTok{    total += pow(x[i]{-}x\_sim[i],2);}
 \StringTok{  \}}
 \StringTok{  return total;}
 \StringTok{\}}
 
+\StringTok{double mean\_std\_dist(double* x\_sim, NumericVector x, NumericVector w) \{}
+\StringTok{  double mean;}
+\StringTok{  double sd;}
+\StringTok{  double s;}
+\StringTok{  for (int i=0;i \textless{} 20; i++)\{}
+\StringTok{    s += x\_sim[i];}
+\StringTok{  \}}
+\StringTok{  for (int i=0;i \textless{} 20; i++)\{}
+\StringTok{    mean += (i+1)*x\_sim[i]/s;}
+\StringTok{  \}}
+\StringTok{  for (int i=0;i \textless{} 20; i++)\{}
+\StringTok{    sd += pow(i+1{-}mean,2)*x\_sim[i]/s;}
+\StringTok{  \}}
+
+\StringTok{  sd = sqrt(sd);}
+\StringTok{  }
+\StringTok{  double total = w[0]*pow(mean{-}13.14,2)/pow(13.14,2)+w[1]*pow(sd{-}2.19,2)/pow(2.19,2)+w[2]*pow(max\_double(x\_sim){-}max(x),2)/(pow(max(x),2));}
+\StringTok{  }
+\StringTok{  return total;}
+
+\StringTok{\}}
+
 \StringTok{// [[Rcpp::export]]}
-\StringTok{NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int metric)}
+\StringTok{NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int metric, NumericVector w)}
 \StringTok{\{}
 \StringTok{  }
 \StringTok{  NumericMatrix accepted\_samples(n, p);}
@@ -392,7 +425,7 @@ The following code implements the ABC/SIR algorithm in C++.
 
 \StringTok{      \#pragma omp critical}
 \StringTok{      \{}
-\StringTok{      theta\_sim[0] = unif\_sitmo(i);}
+\StringTok{      theta\_sim[0] = 3*unif\_sitmo(i);}
 \StringTok{      theta\_sim[1] = unif\_sitmo(i+n);}
 \StringTok{      \}}
 \StringTok{      }
@@ -418,6 +451,8 @@ The following code implements the ABC/SIR algorithm in C++.
 \StringTok{        dist = calc\_dist\_serial(I, x);}
 \StringTok{      \} else if (metric == 2) \{}
 \StringTok{        dist = pow(I[19]{-}x[19], 2);}
+\StringTok{      \} else if (metric == 3) \{}
+\StringTok{        dist = mean\_std\_dist(I, x, w);}
 \StringTok{      \}}
 \StringTok{      if (dist \textless{} eps) \{}
 \StringTok{        accepted\_samples(i, 0) = theta\_sim[0];}
@@ -445,14 +480,26 @@ important to note that we should normalise the \texttt{x} vector before
 inputting it into the ABC function, as the SIR model uses proportions
 rather than raw numbers.
 
+\subsection{Comparison of Metrics}\label{comparison-of-metrics}
+
 As an example, we can run the ABC algorithm with \(10^7\) samples, a
-tolerance of 0.8, and 2 parameters, using the mean squared error as the
-distance metric.
+tolerance of 0.8, and 2 parameters, using the mean squared error
+initially as the distance metric.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{x }\OtherTok{\textless{}{-}}\NormalTok{ bsflu}\SpecialCharTok{$}\NormalTok{B}\SpecialCharTok{/}\DecValTok{763}
-\NormalTok{accepted\_samples }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e7}\NormalTok{, }\FloatTok{0.8}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+\NormalTok{x }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\FunctionTok{rep}\NormalTok{(}\DecValTok{1}\SpecialCharTok{/}\DecValTok{763}\NormalTok{,}\DecValTok{5}\NormalTok{), }\DecValTok{2}\SpecialCharTok{/}\DecValTok{763}\NormalTok{, bsflu}\SpecialCharTok{$}\NormalTok{B}\SpecialCharTok{/}\DecValTok{763}\NormalTok{)}
+\FunctionTok{length}\NormalTok{(x)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 20
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{accepted\_samples }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, .}\DecValTok{8}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{,}\ConstantTok{NA}\NormalTok{)}
 
 \CommentTok{\# remove zeros}
 \NormalTok{accepted\_samples }\OtherTok{\textless{}{-}}\NormalTok{ accepted\_samples[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(accepted\_samples}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),]}
@@ -464,24 +511,23 @@ We can then plot the marginal posterior distributions of the parameters
 
 \begin{Shaded}
 \begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(cowplot)}
 \CommentTok{\# plot the density histograms}
-\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples[,}\DecValTok{1}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples))}\SpecialCharTok{+}
-  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"black"}\NormalTok{)}\SpecialCharTok{+}
+\NormalTok{example\_beta\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples[,}\DecValTok{1}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"lightblue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"blue"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{xlim}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{3}\NormalTok{))}\SpecialCharTok{+}
   \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Beta"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Frequency"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Marginal Posterior Distribution of "}\NormalTok{, beta)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+
+\NormalTok{example\_gamma\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples[,}\DecValTok{2}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"pink"}\NormalTok{,}\AttributeTok{color=}\StringTok{"red"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{xlim}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{1}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Gamma"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Density"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Marginal Posterior Distribution of "}\NormalTok{, gamma)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+
+\FunctionTok{plot\_grid}\NormalTok{(example\_beta\_plot, example\_gamma\_plot)}
 \end{Highlighting}
 \end{Shaded}
 
 \includegraphics{Project_files/figure-latex/unnamed-chunk-8-1.pdf}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples[,}\DecValTok{2}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples))}\SpecialCharTok{+}
-  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"black"}\NormalTok{)}\SpecialCharTok{+}
-  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Gamma"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Density"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Marginal Posterior Distribution of "}\NormalTok{, gamma)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
-\end{Highlighting}
-\end{Shaded}
-
-\includegraphics{Project_files/figure-latex/unnamed-chunk-9-1.pdf}
 
 Now we can compare these posterior distributions to the distributions
 obtained when we use the absolute error between the proportion of
@@ -490,30 +536,26 @@ simulated data as the distance metric.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{accepted\_samples2 }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e7}\NormalTok{, }\FloatTok{0.01}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{2}\NormalTok{)}
+\NormalTok{accepted\_samples2 }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, }\FloatTok{0.001}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{2}\NormalTok{,}\ConstantTok{NA}\NormalTok{)}
 \NormalTok{accepted\_samples2 }\OtherTok{\textless{}{-}}\NormalTok{ accepted\_samples2[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(accepted\_samples2}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),]}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples2[,}\DecValTok{1}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples2))}\SpecialCharTok{+}
-  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"black"}\NormalTok{)}\SpecialCharTok{+}
+\NormalTok{abs\_beta\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples2[,}\DecValTok{1}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples2))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"lightblue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"blue"}\NormalTok{)}\SpecialCharTok{+}
   \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Beta"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Frequency"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Marginal Posterior Distribution of "}\NormalTok{, beta)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
-\end{Highlighting}
-\end{Shaded}
 
-\includegraphics{Project_files/figure-latex/unnamed-chunk-11-1.pdf}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples2[,}\DecValTok{2}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples2))}\SpecialCharTok{+}
-  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"blue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"black"}\NormalTok{)}\SpecialCharTok{+}
+\NormalTok{abs\_gamma\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples2[,}\DecValTok{2}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples2))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"pink"}\NormalTok{,}\AttributeTok{color=}\StringTok{"red"}\NormalTok{)}\SpecialCharTok{+}
   \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Gamma"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Density"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Marginal Posterior Distribution of "}\NormalTok{, gamma)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+
+\FunctionTok{plot\_grid}\NormalTok{(abs\_beta\_plot,abs\_gamma\_plot)}
 \end{Highlighting}
 \end{Shaded}
 
-\includegraphics{Project_files/figure-latex/unnamed-chunk-12-1.pdf}
+\includegraphics{Project_files/figure-latex/unnamed-chunk-10-1.pdf}
 
 \subsection{Acceptance Rates}\label{acceptance-rates}
 
@@ -522,10 +564,10 @@ function of the tolerance value.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{eps }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\FloatTok{0.1}\NormalTok{, }\DecValTok{3}\NormalTok{, }\FloatTok{0.1}\NormalTok{)}
+\NormalTok{eps }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\FloatTok{0.4}\NormalTok{, }\DecValTok{1}\NormalTok{, }\AttributeTok{length.out=}\DecValTok{20}\NormalTok{)}
 \NormalTok{acceptance\_rates }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\FunctionTok{length}\NormalTok{(eps))}
 \ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \DecValTok{1}\SpecialCharTok{:}\FunctionTok{length}\NormalTok{(eps)) \{}
-\NormalTok{  accepted\_samples }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e7}\NormalTok{, eps[i], }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+\NormalTok{  accepted\_samples }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, eps[i], }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{,}\ConstantTok{NA}\NormalTok{)}
 \NormalTok{  acceptance\_rates[i] }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(accepted\_samples[,}\DecValTok{1}\NormalTok{] }\SpecialCharTok{!=} \DecValTok{0}\NormalTok{) }\SpecialCharTok{/} \FunctionTok{nrow}\NormalTok{(accepted\_samples)}
 \NormalTok{\}}
 \end{Highlighting}
@@ -533,10 +575,10 @@ function of the tolerance value.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{eps2 }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\FloatTok{0.1}\NormalTok{, }\FloatTok{0.005}\NormalTok{)}
+\NormalTok{eps2 }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\FloatTok{0.1}\NormalTok{, }\AttributeTok{length.out=}\DecValTok{20}\NormalTok{)}
 \NormalTok{acceptance\_rates2 }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\FunctionTok{length}\NormalTok{(eps2))}
 \ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \DecValTok{1}\SpecialCharTok{:}\FunctionTok{length}\NormalTok{(eps2)) \{}
-\NormalTok{  accepted\_samples2 }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e7}\NormalTok{, eps2[i], }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{2}\NormalTok{)}
+\NormalTok{  accepted\_samples2 }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, eps2[i], }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{2}\NormalTok{,}\ConstantTok{NA}\NormalTok{)}
 \NormalTok{    acceptance\_rates2[i] }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(accepted\_samples2[,}\DecValTok{1}\NormalTok{] }\SpecialCharTok{!=} \DecValTok{0}\NormalTok{) }\SpecialCharTok{/} \FunctionTok{nrow}\NormalTok{(accepted\_samples)}
 \NormalTok{\}}
 \end{Highlighting}
@@ -544,14 +586,259 @@ function of the tolerance value.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\CommentTok{\# plot the acceptance rates on two adjacent plots}
-\FunctionTok{par}\NormalTok{(}\AttributeTok{mfrow=}\FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{2}\NormalTok{))}
-\FunctionTok{plot}\NormalTok{(eps, acceptance\_rates, }\AttributeTok{type=}\StringTok{"l"}\NormalTok{, }\AttributeTok{xlab=}\StringTok{"Tolerance"}\NormalTok{, }\AttributeTok{ylab=}\StringTok{"Acceptance Rate"}\NormalTok{, }\AttributeTok{main=}\StringTok{"Mean Squared Error"}\NormalTok{)}
-\FunctionTok{plot}\NormalTok{(eps2, acceptance\_rates2, }\AttributeTok{type=}\StringTok{"l"}\NormalTok{, }\AttributeTok{xlab=}\StringTok{"Tolerance"}\NormalTok{, }\AttributeTok{ylab=}\StringTok{"Acceptance Rate"}\NormalTok{, }\AttributeTok{main=}\StringTok{"Absolute Error"}\NormalTok{)}
+\NormalTok{msedata}\OtherTok{\textless{}{-}}\FunctionTok{data.frame}\NormalTok{(}\AttributeTok{Tolerance=}\NormalTok{eps,}\AttributeTok{Acceptance\_Rate=}\NormalTok{acceptance\_rates)}
+\NormalTok{absdata}\OtherTok{\textless{}{-}}\FunctionTok{data.frame}\NormalTok{(}\AttributeTok{Tolerance=}\NormalTok{eps2, }\AttributeTok{Acceptance\_Rate=}\NormalTok{acceptance\_rates2)}
+\NormalTok{mse\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(msedata,}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{Tolerance,}\AttributeTok{y=}\NormalTok{Acceptance\_Rate))}\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\AttributeTok{col=}\StringTok{\textquotesingle{}darkgreen\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{col=}\StringTok{\textquotesingle{}darkgreen\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{theme\_light}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{ggtitle}\NormalTok{(}\StringTok{"Mean Squred Error"}\NormalTok{)}
+\NormalTok{abs\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(absdata,}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{Tolerance,}\AttributeTok{y=}\NormalTok{Acceptance\_Rate))}\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\AttributeTok{col=}\StringTok{\textquotesingle{}purple\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{col=}\StringTok{\textquotesingle{}purple\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{theme\_light}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{ggtitle}\NormalTok{(}\StringTok{"Absolute Value"}\NormalTok{)}
+\FunctionTok{plot\_grid}\NormalTok{(mse\_plot,abs\_plot)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-13-1.pdf}
+
+We see that there is a sharp transition in the acceptance rate in the
+mean squared error plot. Below we plot the marginal posterior
+distribution of \(\beta\) and \(\gamma\) at a tolerance before and after
+the transition.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{accepted\_samples\_before }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, }\FloatTok{0.55}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{,}\ConstantTok{NA}\NormalTok{)}
+\NormalTok{accepted\_samples\_before }\OtherTok{\textless{}{-}}\NormalTok{ accepted\_samples\_before[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(accepted\_samples\_before}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),]}
+\NormalTok{accepted\_samples\_after }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, }\FloatTok{0.6}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{,}\ConstantTok{NA}\NormalTok{)}
+\NormalTok{accepted\_samples\_after }\OtherTok{\textless{}{-}}\NormalTok{ accepted\_samples\_after[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(accepted\_samples\_after}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{before\_beta\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples\_before[,}\DecValTok{1}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples\_before))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"lightblue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"blue"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{xlim}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{3}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Beta"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Frequency"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Distribution of "}\NormalTok{, beta,}\StringTok{"  (Before)"}\NormalTok{)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+
+\NormalTok{before\_gamma\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples\_before[,}\DecValTok{2}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples\_before))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"pink"}\NormalTok{,}\AttributeTok{color=}\StringTok{"red"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{xlim}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{1}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Gamma"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Density"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Distribution of "}\NormalTok{, gamma,}\StringTok{" (Before)"}\NormalTok{)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+
+\NormalTok{after\_beta\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples\_after[,}\DecValTok{1}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples\_after))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"lightblue"}\NormalTok{,}\AttributeTok{color=}\StringTok{"blue"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{xlim}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{3}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Beta"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Frequency"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Distribution of "}\NormalTok{, beta, }\StringTok{" (After)"}\NormalTok{)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+
+\NormalTok{after\_gamma\_plot}\OtherTok{\textless{}{-}}\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{accepted\_samples\_after[,}\DecValTok{2}\NormalTok{]), }\AttributeTok{data =} \FunctionTok{as.data.frame}\NormalTok{(accepted\_samples\_after))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{"pink"}\NormalTok{,}\AttributeTok{color=}\StringTok{"red"}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{xlim}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{1}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Gamma"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Density"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Distribution of "}\NormalTok{, gamma, }\StringTok{" (After)"}\NormalTok{)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+
+\FunctionTok{plot\_grid}\NormalTok{(before\_beta\_plot,after\_beta\_plot,before\_gamma\_plot,after\_gamma\_plot,}\AttributeTok{nrow=}\DecValTok{2}\NormalTok{,}\AttributeTok{ncol=}\DecValTok{2}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
 \includegraphics{Project_files/figure-latex/unnamed-chunk-15-1.pdf}
+
+Indeed, as we decrease the value of \(\epsilon\), the ABC-estimated
+posterior distribution of \(\beta\) and \(\gamma\) diverges further and
+further from the uniform priors \(U[0,3]\), \(U[0,1]\), and converges
+towards a distribution centered around the MAP (maximum a priori)
+estimate.
+
+We can see this in the plot below, which begins with a tolerance value
+of 0.4, producing a wider plot, and with each decrease in \(\epsilon\),
+more and more mass is shifted towards the `true' value. Whilst not
+included here, the same is true for \(\gamma\) also.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{epsilons }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\FloatTok{0.5}\NormalTok{,}\FloatTok{0.4}\NormalTok{,}\FloatTok{0.3}\NormalTok{,}\FloatTok{0.2}\NormalTok{)}
+\NormalTok{datas }\OtherTok{\textless{}{-}} \FunctionTok{list}\NormalTok{(}\FunctionTok{c}\NormalTok{(),}\FunctionTok{c}\NormalTok{(),}\FunctionTok{c}\NormalTok{(),}\FunctionTok{c}\NormalTok{())}
+\ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \DecValTok{1}\SpecialCharTok{:}\DecValTok{4}\NormalTok{)\{}
+\NormalTok{  sims }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, epsilons[i], }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{,}\ConstantTok{NA}\NormalTok{)}
+\NormalTok{  datas[[i]] }\OtherTok{\textless{}{-}}\NormalTok{ sims[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(sims}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),][,}\DecValTok{1}\NormalTok{]}
+\NormalTok{\}}
+
+\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{datas[[}\DecValTok{1}\NormalTok{]]),}\AttributeTok{data=}\FunctionTok{as.data.frame}\NormalTok{(datas[[}\DecValTok{1}\NormalTok{]]))}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{fill=}\StringTok{\textquotesingle{}blue\textquotesingle{}}\NormalTok{,}\AttributeTok{alpha=}\NormalTok{.}\DecValTok{2}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{data=}\FunctionTok{as.data.frame}\NormalTok{(datas[[}\DecValTok{2}\NormalTok{]]),}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{datas[[}\DecValTok{2}\NormalTok{]]),}\AttributeTok{fill=}\StringTok{\textquotesingle{}blue\textquotesingle{}}\NormalTok{,}\AttributeTok{alpha=}\NormalTok{.}\DecValTok{2}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{data=}\FunctionTok{as.data.frame}\NormalTok{(datas[[}\DecValTok{3}\NormalTok{]]),}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{datas[[}\DecValTok{3}\NormalTok{]]),}\AttributeTok{fill=}\StringTok{\textquotesingle{}blue\textquotesingle{}}\NormalTok{,}\AttributeTok{alpha=}\NormalTok{.}\DecValTok{2}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{data=}\FunctionTok{as.data.frame}\NormalTok{(datas[[}\DecValTok{4}\NormalTok{]]),}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{datas[[}\DecValTok{4}\NormalTok{]]),}\AttributeTok{fill=}\StringTok{\textquotesingle{}blue\textquotesingle{}}\NormalTok{,}\AttributeTok{alpha=}\NormalTok{.}\DecValTok{2}\NormalTok{)}\SpecialCharTok{+}
+  \FunctionTok{xlim}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{3}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x=}\StringTok{"Beta"}\NormalTok{,}\AttributeTok{y=}\StringTok{"Frequency"}\NormalTok{,}\AttributeTok{title=}\FunctionTok{expression}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"Distribution of "}\NormalTok{, beta,}\StringTok{"  as  "}\NormalTok{, epsilon, }\StringTok{" approaches 0.1"}\NormalTok{)))}\SpecialCharTok{+}\FunctionTok{theme\_light}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-16-1.pdf}
+
+\subsection{Parameter Estimates}\label{parameter-estimates}
+
+We will now simulate the SIR model using the optimal values of \(\beta\)
+and \(\gamma\). To best gain these optimal point estimates from our
+posterior distributions produced by ABC, we use a method of kernel
+density estimation.
+
+Below is a function which calculates these estimates for \(\hat{\beta}\)
+and \(\hat{\gamma}\), then is able to plot the associated heatmap used
+to find these posterior maximisers, as well as the fit to the observed
+data produced when inputting these estimates into the SIR simulator.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(MASS)}
+\FunctionTok{library}\NormalTok{(ks)}
+
+\NormalTok{Optimal\_Plot}\OtherTok{\textless{}{-}}\ControlFlowTok{function}\NormalTok{(sims,plot.heat)\{}
+  
+  \FunctionTok{colnames}\NormalTok{(sims) }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"beta"}\NormalTok{, }\StringTok{"gamma"}\NormalTok{)}
+  
+\NormalTok{  kde\_result }\OtherTok{\textless{}{-}} \FunctionTok{kde2d}\NormalTok{(sims[,}\DecValTok{1}\NormalTok{], sims[,}\DecValTok{2}\NormalTok{], }\AttributeTok{n=}\DecValTok{50}\NormalTok{)}
+  
+\NormalTok{  kde\_df }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+  \AttributeTok{x =} \FunctionTok{rep}\NormalTok{(kde\_result}\SpecialCharTok{$}\NormalTok{x, }\AttributeTok{each =} \FunctionTok{length}\NormalTok{(kde\_result}\SpecialCharTok{$}\NormalTok{y)),}
+  \AttributeTok{y =} \FunctionTok{rep}\NormalTok{(kde\_result}\SpecialCharTok{$}\NormalTok{y, }\AttributeTok{times =} \FunctionTok{length}\NormalTok{(kde\_result}\SpecialCharTok{$}\NormalTok{x)),}
+  \AttributeTok{z =} \FunctionTok{as.vector}\NormalTok{(kde\_result}\SpecialCharTok{$}\NormalTok{z)}
+\NormalTok{  )}
+  
+\NormalTok{  heat\_plot }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(kde\_df, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ x, }\AttributeTok{y =}\NormalTok{ y, }\AttributeTok{z =}\NormalTok{ z)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_contour\_filled}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"2D KDE Filled Contour Plot"}\NormalTok{,}
+       \AttributeTok{x =} \StringTok{"X{-}axis"}\NormalTok{,}
+       \AttributeTok{y =} \StringTok{"Y{-}axis"}\NormalTok{,}
+       \AttributeTok{fill =} \StringTok{"Density"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme\_minimal}\NormalTok{()}
+  
+  \CommentTok{\# Extract KDE results}
+\NormalTok{  x }\OtherTok{\textless{}{-}}\NormalTok{ kde\_result}\SpecialCharTok{$}\NormalTok{x}
+\NormalTok{  y }\OtherTok{\textless{}{-}}\NormalTok{ kde\_result}\SpecialCharTok{$}\NormalTok{y}
+\NormalTok{  z }\OtherTok{\textless{}{-}}\NormalTok{ kde\_result}\SpecialCharTok{$}\NormalTok{z}
+  
+  \CommentTok{\# Find the indices of the maximum density value}
+\NormalTok{  max\_density\_index }\OtherTok{\textless{}{-}} \FunctionTok{which}\NormalTok{(z }\SpecialCharTok{==} \FunctionTok{max}\NormalTok{(z), }\AttributeTok{arr.ind =} \ConstantTok{TRUE}\NormalTok{)}
+  
+  \CommentTok{\# Get the corresponding x and y values for the maximum density}
+\NormalTok{  max\_x }\OtherTok{\textless{}{-}}\NormalTok{ x[max\_density\_index[}\DecValTok{1}\NormalTok{]]}
+\NormalTok{  max\_y }\OtherTok{\textless{}{-}}\NormalTok{ y[max\_density\_index[}\DecValTok{2}\NormalTok{]]}
+  
+\NormalTok{  I }\OtherTok{\textless{}{-}} \FunctionTok{SIR}\NormalTok{(}\FunctionTok{numeric}\NormalTok{(}\DecValTok{20}\NormalTok{), }\FunctionTok{numeric}\NormalTok{(}\DecValTok{20}\NormalTok{), }\FunctionTok{numeric}\NormalTok{(}\DecValTok{20}\NormalTok{), }\DecValTok{1} \SpecialCharTok{{-}} \DecValTok{1}\SpecialCharTok{/}\DecValTok{763}\NormalTok{, }\DecValTok{1}\SpecialCharTok{/}\DecValTok{763}\NormalTok{, }\DecValTok{0}\NormalTok{, max\_x, max\_y)}
+  
+\NormalTok{  obs\_data }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\FunctionTok{rep}\NormalTok{(}\DecValTok{1}\SpecialCharTok{/}\DecValTok{763}\NormalTok{,}\DecValTok{5}\NormalTok{), }\DecValTok{2}\SpecialCharTok{/}\DecValTok{763}\NormalTok{, bsflu}\SpecialCharTok{$}\NormalTok{B}\SpecialCharTok{/}\DecValTok{763}\NormalTok{)}
+  
+\NormalTok{  fit\_plot }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(}\AttributeTok{data=}\FunctionTok{data.frame}\NormalTok{(}\AttributeTok{z=}\FunctionTok{c}\NormalTok{(}\FunctionTok{seq}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{20}\NormalTok{),}\FunctionTok{seq}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{20}\NormalTok{)),}\AttributeTok{y=}\FunctionTok{c}\NormalTok{(obs\_data,I),}\AttributeTok{Data=}\FunctionTok{c}\NormalTok{(}\FunctionTok{rep}\NormalTok{(}\StringTok{"Observed"}\NormalTok{,}\DecValTok{20}\NormalTok{  ),}\FunctionTok{rep}\NormalTok{(}\StringTok{"Simulation"}\NormalTok{,}\DecValTok{20}\NormalTok{))),}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{z,}\AttributeTok{y=}\NormalTok{y,}\AttributeTok{col=}\NormalTok{Data)) }\SpecialCharTok{+}
+    \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{xlab}\NormalTok{(}\StringTok{"Day"}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{ylab}\NormalTok{(}\StringTok{"Proportion of Infected"}\NormalTok{) }\SpecialCharTok{+}     \FunctionTok{ggtitle}\NormalTok{(}\StringTok{"ABC Estimated Fit vs. Observed Data"}\NormalTok{)}
+  
+  \ControlFlowTok{if}\NormalTok{(plot.heat)\{}
+    
+    \FunctionTok{plot\_grid}\NormalTok{(heat\_plot,fit\_plot)}
+    
+\NormalTok{  \}}
+  \ControlFlowTok{else}\NormalTok{\{}
+    
+    \FunctionTok{return}\NormalTok{(fit\_plot)}
+    
+\NormalTok{  \}}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+As an example therefore, we can use the mean squared error distance
+metric, along with a very small tolerance value of 0.01 to produce this
+fit to the data.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{accepted\_samples }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, .}\DecValTok{1}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{,}\ConstantTok{NA}\NormalTok{)}
+\NormalTok{accepted\_samples }\OtherTok{\textless{}{-}}\NormalTok{ accepted\_samples[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(accepted\_samples}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),]}
+
+
+\FunctionTok{Optimal\_Plot}\NormalTok{(accepted\_samples,}\ConstantTok{TRUE}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-18-1.pdf}
+
+By observing the contour plot, we can see that the optimal parameters
+using this method is about \(\hat{\gamma} = 0.45\), and
+\(1.2 < \hat{\beta} < 1.3\). Then by plugging these into the SIR
+simulator, we get a simulation that matches the observed data well.
+However it is worth noting that to achieve such a good fit required an
+incredibly low acceptance rate: only 0.86\%.
+
+\subsection{Extension: Summary
+Statistics}\label{extension-summary-statistics}
+
+One other distance metric we could have used was that of looking at the
+difference between a handful of \emph{summary statistics} of the data,
+rather than the raw data itself. This reduces the dimensionality of the
+problem and can reduce the amount of simulations needed for a good fit.
+
+The example we use here looks at the empirical mean and variance of the
+distribution, as well as the `peak' of the distribution. I.e. for
+observed data points \((x_i,y_i)\) where \(x_i\) is normalised to be a
+probability,
+
+\[
+\mu = \sum_{i=1}^{N}x_i y_i
+\]
+
+\[
+\sigma^2 = \sum_{i=1}^N y_i(\mu-x_i)^2
+\]
+
+Then by observing \(d_{obs} = (x_{obs},y_{obs})\) and simulating
+\(d_{sim} = (x_{sim},y_{sim})\), we define our distance metric to be:
+
+\[
+D(d_{obs},d_{sim}) = w_1\frac{(\mu_{obs}-\mu_{sim})^2}{\mu_{obs}^2} + w_2\frac{(\sigma_{obs}-\sigma_{sim})^2}{\sigma_{obs}^2} + w_3\frac{(max(d_{obs})-max(d_{sim}))^2}{max(d_{obs})^2}
+\]
+
+Where \(w_1, w_2, w_3\) are the weights assigned to each distance
+measure.
+
+Then by using a different set of weights, we can assign more importance
+to the matching of mean, variance, and whether the peaks of the
+distributions coincide. For example, by prioritizing each we obtain the
+plots below, where the mean weighted one matches the mean perfectly, but
+at the expense of standard deviation. The estimate weighted by peak
+however matches the peak and shape of distribution correctly, but with
+the wrong mean.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{weights }\OtherTok{\textless{}{-}} \FunctionTok{list}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\DecValTok{2}\NormalTok{,.}\DecValTok{2}\NormalTok{,.}\DecValTok{2}\NormalTok{),}\FunctionTok{c}\NormalTok{(.}\DecValTok{2}\NormalTok{,}\DecValTok{1}\NormalTok{,.}\DecValTok{2}\NormalTok{),}\FunctionTok{c}\NormalTok{(.}\DecValTok{2}\NormalTok{,.}\DecValTok{2}\NormalTok{,}\DecValTok{2}\NormalTok{))}
+\NormalTok{plots }\OtherTok{\textless{}{-}} \FunctionTok{list}\NormalTok{(before\_gamma\_plot,before\_beta\_plot,before\_beta\_plot)}
+
+\ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \DecValTok{1}\SpecialCharTok{:}\DecValTok{3}\NormalTok{)\{}
+  
+\NormalTok{  accepted\_samples }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, .}\DecValTok{4}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{3}\NormalTok{, weights[[i]])}
+\NormalTok{  accepted\_samples }\OtherTok{\textless{}{-}}\NormalTok{ accepted\_samples[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(accepted\_samples}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),]}
+\NormalTok{  plots[[i]] }\OtherTok{\textless{}{-}} \FunctionTok{Optimal\_Plot}\NormalTok{(accepted\_samples,}\ConstantTok{FALSE}\NormalTok{)}
+  
+\NormalTok{\}}
+
+\FunctionTok{plot\_grid}\NormalTok{(plots[[}\DecValTok{1}\NormalTok{]],plots[[}\DecValTok{2}\NormalTok{]],plots[[}\DecValTok{3}\NormalTok{]])}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-19-1.pdf}
+
+Then by choosing an appropriate set of weights and a low value of
+\(\epsilon\), we can achieve a fit to the observed data of similar
+quality to that which we got using the mean squared error of raw data.
+The difference here is the acceptance probability, while low, is much
+higher than that case: 4\% as opposed to 0.8\%. Hence requiring less
+computational power due to less simulations required.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{accepted\_samples }\OtherTok{\textless{}{-}} \FunctionTok{ABC}\NormalTok{(}\FloatTok{1e6}\NormalTok{, .}\DecValTok{05}\NormalTok{, }\DecValTok{2}\NormalTok{, x, }\DecValTok{4}\NormalTok{, }\DecValTok{3}\NormalTok{, }\FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{,.}\DecValTok{1}\NormalTok{,.}\DecValTok{5}\NormalTok{))}
+\NormalTok{accepted\_samples }\OtherTok{\textless{}{-}}\NormalTok{ accepted\_samples[}\SpecialCharTok{!}\FunctionTok{rowSums}\NormalTok{(accepted\_samples}\SpecialCharTok{==}\DecValTok{0}\NormalTok{),]}
+\FunctionTok{Optimal\_Plot}\NormalTok{(accepted\_samples,}\ConstantTok{FALSE}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{Project_files/figure-latex/unnamed-chunk-20-1.pdf}
 
 \subsection{References}\label{references}
 
