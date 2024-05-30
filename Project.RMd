@@ -67,8 +67,7 @@ sourceCpp(code = "
   using namespace Rcpp;
 
   // [[Rcpp::export]]
-  NumericVector SIR(NumericVector s, NumericVector i, NumericVector r, double s0,
-                    double i0, double r0, double beta, double gamma) {
+  NumericVector SIR(NumericVector s, NumericVector i, NumericVector r, double s0, double i0, double r0, double beta, double gamma) {
     s[0] = s0;
     i[0] = i0;
     r[0] = r0;
@@ -99,8 +98,7 @@ print(sir)
 ggplot(aes(x=day,y=sir), data = sir)+
   geom_line(color="red")+
   geom_point(color="red")+
-  labs(y="Proportion of Infected",x="Day",title="SIR Model with beta=0.8, gamma=0.2")+
-       theme_light()
+  labs(y="Proportion of Infected",x="Day",title="SIR Model with beta=0.8, gamma=0.2")+theme_light()
 ```
 
 ## ABC Definition
@@ -186,16 +184,14 @@ double mean_std_dist(double* x_sim, NumericVector x, NumericVector w) {
 
   sd = sqrt(sd);
   
-  double total = w[0]*pow(mean-13.14,2)/pow(13.14,2)+w[1]*pow(sd-2.19,2)/pow(2.19,2)
-                 +w[2]*pow(max_double(x_sim)-max(x),2)/(pow(max(x),2));
+  double total = w[0]*pow(mean-13.14,2)/pow(13.14,2)+w[1]*pow(sd-2.19,2)/pow(2.19,2)+w[2]*pow(max_double(x_sim)-max(x),2)/(pow(max(x),2));
   
   return total;
 
 }
 
 // [[Rcpp::export]]
-NumericMatrix ABC(int n, double eps, int p, NumericVector x,
-                  int ncores, int metric, NumericVector w)
+NumericMatrix ABC(int n, double eps, int p, NumericVector x, int ncores, int metric, NumericVector w)
 {
   
   NumericMatrix accepted_samples(n, p);
@@ -277,14 +273,12 @@ We can then plot the marginal posterior distributions of the parameters $\beta$ 
 ```{r}
 library(cowplot)
 # plot the density histograms
-example_beta_plot<-ggplot(aes(x=accepted_samples[,1]),
-  data = as.data.frame(accepted_samples))+
+example_beta_plot<-ggplot(aes(x=accepted_samples[,1]), data = as.data.frame(accepted_samples))+
   geom_density(fill="lightblue",color="blue")+
   xlim(c(0,3))+
   labs(x="Beta",y="Frequency",title=expression(paste("Marginal Posterior Distribution of ", beta)))+theme_light()
 
-example_gamma_plot<-ggplot(aes(x=accepted_samples[,2]),
-  data = as.data.frame(accepted_samples))+
+example_gamma_plot<-ggplot(aes(x=accepted_samples[,2]), data = as.data.frame(accepted_samples))+
   geom_density(fill="pink",color="red")+
   xlim(c(0,1))+
   labs(x="Gamma",y="Density",title=expression(paste("Marginal Posterior Distribution of ", gamma)))+theme_light()
@@ -300,13 +294,11 @@ accepted_samples2 <- accepted_samples2[!rowSums(accepted_samples2==0),]
 ```
 
 ```{r}
-abs_beta_plot<-ggplot(aes(x=accepted_samples2[,1]),
-  data = as.data.frame(accepted_samples2))+
+abs_beta_plot<-ggplot(aes(x=accepted_samples2[,1]), data = as.data.frame(accepted_samples2))+
   geom_density(fill="lightblue",color="blue")+
   labs(x="Beta",y="Frequency",title=expression(paste("Marginal Posterior Distribution of ", beta)))+theme_light()
 
-abs_gamma_plot<-ggplot(aes(x=accepted_samples2[,2]),
-  data = as.data.frame(accepted_samples2))+
+abs_gamma_plot<-ggplot(aes(x=accepted_samples2[,2]), data = as.data.frame(accepted_samples2))+
   geom_density(fill="pink",color="red")+
   labs(x="Gamma",y="Density",title=expression(paste("Marginal Posterior Distribution of ", gamma)))+theme_light()
 
@@ -339,11 +331,9 @@ for (i in 1:length(eps2)) {
 msedata<-data.frame(Tolerance=eps,Acceptance_Rate=acceptance_rates)
 absdata<-data.frame(Tolerance=eps2, Acceptance_Rate=acceptance_rates2)
 mse_plot<-ggplot(msedata,aes(x=Tolerance,y=Acceptance_Rate))+
-  geom_line(col='darkgreen') + geom_point(col='darkgreen')
-  + theme_light() + ggtitle("Mean Squred Error")
+  geom_line(col='darkgreen') + geom_point(col='darkgreen') + theme_light() + ggtitle("Mean Squred Error")
 abs_plot<-ggplot(absdata,aes(x=Tolerance,y=Acceptance_Rate))+
-  geom_line(col='purple') + geom_point(col='purple')
-  + theme_light() + ggtitle("Absolute Value")
+  geom_line(col='purple') + geom_point(col='purple') + theme_light() + ggtitle("Absolute Value")
 plot_grid(mse_plot,abs_plot)
 ```
 
@@ -357,37 +347,27 @@ accepted_samples_after <- accepted_samples_after[!rowSums(accepted_samples_after
 ```
 
 ```{r}
-before_beta_plot<-ggplot(aes(x=accepted_samples_before[,1]),
-  data = as.data.frame(accepted_samples_before))+
+before_beta_plot<-ggplot(aes(x=accepted_samples_before[,1]), data = as.data.frame(accepted_samples_before))+
   geom_density(fill="lightblue",color="blue")+
   xlim(c(0,3))+
-  labs(x="Beta",y="Frequency",
-       title=expression(paste("Distribution of ", beta,"  (Before)")))+
-  theme_light()
+  labs(x="Beta",y="Frequency",title=expression(paste("Distribution of ", beta,"  (Before)")))+theme_light()
 
-before_gamma_plot<-ggplot(aes(x=accepted_samples_before[,2]),
-  data = as.data.frame(accepted_samples_before))+
+before_gamma_plot<-ggplot(aes(x=accepted_samples_before[,2]), data = as.data.frame(accepted_samples_before))+
   geom_density(fill="pink",color="red")+
   xlim(c(0,1))+
-  labs(x="Gamma",y="Density",title=expression(paste("Distribution of ", gamma," (Before)")))+
-  theme_light()
+  labs(x="Gamma",y="Density",title=expression(paste("Distribution of ", gamma," (Before)")))+theme_light()
 
-after_beta_plot<-ggplot(aes(x=accepted_samples_after[,1]),
-  data = as.data.frame(accepted_samples_after))+
+after_beta_plot<-ggplot(aes(x=accepted_samples_after[,1]), data = as.data.frame(accepted_samples_after))+
   geom_density(fill="lightblue",color="blue")+
   xlim(c(0,3))+
-  labs(x="Beta",y="Frequency",title=expression(paste("Distribution of ", beta, " (After)")))+
-  theme_light()
+  labs(x="Beta",y="Frequency",title=expression(paste("Distribution of ", beta, " (After)")))+theme_light()
 
-after_gamma_plot<-ggplot(aes(x=accepted_samples_after[,2]),
-  data = as.data.frame(accepted_samples_after))+
+after_gamma_plot<-ggplot(aes(x=accepted_samples_after[,2]), data = as.data.frame(accepted_samples_after))+
   geom_density(fill="pink",color="red")+
   xlim(c(0,1))+
-  labs(x="Gamma",y="Density",title=expression(paste("Distribution of ", gamma, " (After)")))+
-  theme_light()
+  labs(x="Gamma",y="Density",title=expression(paste("Distribution of ", gamma, " (After)")))+theme_light()
 
-plot_grid(before_beta_plot,after_beta_plot,before_gamma_plot,
-          after_gamma_plot,nrow=2,ncol=2)
+plot_grid(before_beta_plot,after_beta_plot,before_gamma_plot,after_gamma_plot,nrow=2,ncol=2)
 ```
 
 Indeed, as we decrease the value of $\epsilon$, the ABC-estimated posterior distribution of $\beta$ and $\gamma$ diverges further and further from the uniform priors $U[0,3]$, $U[0,1]$, and converges towards a distribution centered around the MAP (maximum a priori) estimate.
@@ -408,9 +388,7 @@ ggplot(aes(x=datas[[1]]),data=as.data.frame(datas[[1]]))+
   geom_density(data=as.data.frame(datas[[3]]),aes(x=datas[[3]]),fill='blue',alpha=.2)+
   geom_density(data=as.data.frame(datas[[4]]),aes(x=datas[[4]]),fill='blue',alpha=.2)+
   xlim(c(0,3))+
-  labs(x="Beta",y="Frequency",
-       title=expression(paste("Distribution of ", beta,"  as  ", epsilon, " approaches 0.1")))+
-  theme_light()
+  labs(x="Beta",y="Frequency",title=expression(paste("Distribution of ", beta,"  as  ", epsilon, " approaches 0.1")))+theme_light()
 
 ```
 
@@ -460,10 +438,8 @@ Optimal_Plot<-function(sims,plot.heat){
   
   obs_data <- c(rep(1/763,5), 2/763, bsflu$B/763)
   
-  fit_plot <- ggplot(data=data.frame(z=c(seq(1,20),seq(1,20)),y=c(obs_data,I),
-    Data=c(rep("Observed",20  ),rep("Simulation",20))),aes(x=z,y=y,col=Data)) +
-    geom_point() + geom_line() + xlab("Day") + ylab("Proportion of Infected") +
-    ggtitle("ABC Estimated Fit vs. Observed Data")
+  fit_plot <- ggplot(data=data.frame(z=c(seq(1,20),seq(1,20)),y=c(obs_data,I),Data=c(rep("Observed",20  ),rep("Simulation",20))),aes(x=z,y=y,col=Data)) +
+    geom_point() + geom_line() + xlab("Day") + ylab("Proportion of Infected") +     ggtitle("ABC Estimated Fit vs. Observed Data")
   
   if(plot.heat){
     
@@ -483,6 +459,7 @@ As an example therefore, we can use the mean squared error distance metric, alon
 ```{r}
 accepted_samples <- ABC(1e6, .1, 2, x, 4, 1,NA)
 accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
+
 
 Optimal_Plot(accepted_samples,TRUE)
 ```
@@ -549,42 +526,36 @@ par(mfrow=c(1,3))
 n_samples <- 100
 
 # mean squared metric
-plot(x, xlim=c(1,20), ylim=c(0,1), xlab="Day",
-     ylab="Proportion of Infected", main="Mean Squared Error")
+plot(x, xlim=c(1,20), ylim=c(0,1), xlab="Day", ylab="Proportion of Infected", main="Mean Squared Error")
 accepted_samples <- ABC(1e6, .1, 2, x, 4, 1,NA)
 accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
 for (i in 1:n_samples) {
   beta <- sample(accepted_samples[,1], 1)
   gamma <- sample(accepted_samples[,2], 1)
   I <- SIR(numeric(20), numeric(20), numeric(20), 1 - 1/763, 1/763, 0, beta, gamma)
-  lines(I, type = "l", col = "grey", xlab = "Day",
-        ylab = "Proportion of Infected", main = "Mean Squared Error", lwd=0.5)
+  lines(I, type = "l", col = "grey", xlab = "Day", ylab = "Proportion of Infected", main = "Mean Squared Error", lwd=0.5)
 }
 
 # absolute error metric
-plot(x, xlim=c(1,20), ylim=c(0,1), xlab="Day",
-     ylab="Proportion of Infected", main="Absolute Error")
+plot(x, xlim=c(1,20), ylim=c(0,1), xlab="Day", ylab="Proportion of Infected", main="Absolute Error")
 accepted_samples <- ABC(1e6, .005, 2, x, 4, 2,NA)
 accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
 for (i in 1:n_samples) {
   beta <- sample(accepted_samples[,1], 1)
   gamma <- sample(accepted_samples[,2], 1)
   I <- SIR(numeric(20), numeric(20), numeric(20), 1 - 1/763, 1/763, 0, beta, gamma)
-  lines(I, type = "l", col = "grey", xlab = "Day",
-        ylab = "Proportion of Infected", main = "Mean Squared Error", lwd=0.5)
+  lines(I, type = "l", col = "grey", xlab = "Day", ylab = "Proportion of Infected", main = "Mean Squared Error", lwd=0.5)
 }
 
 # summary statistics metric
-plot(x, xlim=c(1,20), ylim=c(0,1), xlab="Day",
-     ylab="Proportion of Infected", main="Summary Statistics")
+plot(x, xlim=c(1,20), ylim=c(0,1), xlab="Day", ylab="Proportion of Infected", main="Summary Statistics")
 accepted_samples <- ABC(1e6, .05, 2, x, 4, 3, c(1,.1,.5))
 accepted_samples <- accepted_samples[!rowSums(accepted_samples==0),]
 for (i in 1:n_samples) {
   beta <- sample(accepted_samples[,1], 1)
   gamma <- sample(accepted_samples[,2], 1)
   I <- SIR(numeric(20), numeric(20), numeric(20), 1 - 1/763, 1/763, 0, beta, gamma)
-  lines(I, type = "l", col = "grey", xlab = "Day",
-        ylab = "Proportion of Infected", main = "Mean Squared Error", lwd=0.5)
+  lines(I, type = "l", col = "grey", xlab = "Day", ylab = "Proportion of Infected", main = "Mean Squared Error", lwd=0.5)
 }
 ```
 
