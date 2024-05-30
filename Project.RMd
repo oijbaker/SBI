@@ -99,8 +99,8 @@ print(sir)
 ggplot(aes(x=day,y=sir), data = sir)+
   geom_line(color="red")+
   geom_point(color="red")+
-  labs(y="Proportion of Infected",x="Day",title="SIR Model with beta=0.8, gamma=0.2")
-        +theme_light()
+  labs(y="Proportion of Infected",x="Day",title="SIR Model with beta=0.8, gamma=0.2")+
+       theme_light()
 ```
 
 ## ABC Definition
