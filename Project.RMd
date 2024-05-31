@@ -62,6 +62,8 @@ Where $S$ is the proportion of susceptible individuals, $I$ is the proportion of
 
 With such a definition, we can translate the column `B` in the `bsflu` data directly to the variable $I$ simply by dividing `B` by the total number of students ($N=763$). Unfortunately, the column `C` has no analogy in the model, as it acts as a confusing 'between recovery' state that cannot be grouped in with either $I$ or $R$. Therefore going forward, we will primarily be using the column `B` as the observed data in our SIR model estimate.
 
+Although the data was explicitly taken over a period of 14 days, we choose to model the SIR over 20 days since the first infected student had arrived at school from holiday six days before the next case, according to the dataset's description.
+
 Approximate Bayesian computation is a simulation based approach, and will require many individual computations. In the interest of speed therefore, we will implement the SIR model in C++, then use RCPP to call the C++ code from R.
 
 ```{r}
